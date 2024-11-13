@@ -5,10 +5,9 @@ from typing import Optional
 import c3d
 import numpy as np
 
-import mocap_popy.config.logger as logger
 from mocap_popy.models.marker_trajectory import MarkerTrajectory
 
-LOGGER = logger.setup_logger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 def get_reader(c3d_path: str):
@@ -22,6 +21,17 @@ def get_point_labels(reader: c3d.Reader) -> list[str]:
     @param reader C3D reader.
     """
     return [pl.replace(" ", "") for pl in reader.point_labels]
+
+
+def get_frames(reader: c3d.Reader) -> int:
+    """!Get frame numbers from a C3D file.
+
+    @param reader C3D reader.
+    """
+    frames = []
+    for frame, _, _ in reader.read_frames():
+        frames.append(frame)
+    return frames
 
 
 def get_marker_positions(

@@ -4,8 +4,8 @@ import unittest
 import matplotlib.pyplot as plt
 import numpy as np
 
-import mocap_popy.utils.c3d_loader as c3d_loader
-import mocap_popy.utils.plotting as plotUtils
+import mocap_popy.utils.c3d_parser as c3d_parser
+import mocap_popy.utils.plot_utils as plotUtils
 
 
 THIS_PATH = os.path.join(os.path.dirname(__file__))
@@ -41,41 +41,41 @@ PLOT_MARKER = "Right_HM"
 
 class TestC3DLoader(unittest.TestCase):
     def test_point_consistency(self):
-        reader = c3d_loader.get_reader(TEST_DATA_PATH)
-        self.assertTrue(c3d_loader.check_point_consistency(reader) is None)
+        reader = c3d_parser.get_reader(TEST_DATA_PATH)
+        self.assertTrue(c3d_parser.check_point_consistency(reader) is None)
 
     def test_point_labels(self):
-        reader = c3d_loader.get_reader(TEST_DATA_PATH)
-        point_labels = c3d_loader.get_point_labels(reader)
+        reader = c3d_parser.get_reader(TEST_DATA_PATH)
+        point_labels = c3d_parser.get_point_labels(reader)
         self.assertEqual(point_labels, EXPECTED_POINT_LABELS)
 
     def test_marker_positions(self):
-        reader = c3d_loader.get_reader(TEST_DATA_PATH)
-        positions, residuals = c3d_loader.get_marker_positions(reader)
+        reader = c3d_parser.get_reader(TEST_DATA_PATH)
+        positions, residuals = c3d_parser.get_marker_positions(reader)
         self.assertTrue(len(positions) > 0)
         self.assertTrue(len(residuals) > 0)
 
-        desired_pos, _ = c3d_loader.get_marker_positions(
+        desired_pos, _ = c3d_parser.get_marker_positions(
             reader, marker_labels=["Right_HM"]
         )
         self.assertEqual(len(desired_pos), 1)
 
     def test_marker_trajectories(self):
-        reader = c3d_loader.get_reader(TEST_DATA_PATH)
-        trajectories = c3d_loader.get_marker_trajectories(reader)
+        reader = c3d_parser.get_reader(TEST_DATA_PATH)
+        trajectories = c3d_parser.get_marker_trajectories(reader)
         self.assertTrue(len(trajectories) > 0)
 
-        desired_traj = c3d_loader.get_marker_trajectories(
+        desired_traj = c3d_parser.get_marker_trajectories(
             reader, marker_labels=["Right_HM"]
         )
         self.assertEqual(len(desired_traj), 1)
 
     def test_plot(self):
-        reader = c3d_loader.get_reader(TEST_DATA_PATH)
-        trajectories = c3d_loader.get_marker_trajectories(
+        reader = c3d_parser.get_reader(TEST_DATA_PATH)
+        trajectories = c3d_parser.get_marker_trajectories(
             reader, marker_labels=[PLOT_MARKER], unit_scale=0.001
         )
-        positions, residuals = c3d_loader.get_marker_positions(
+        positions, residuals = c3d_parser.get_marker_positions(
             reader, marker_labels=[PLOT_MARKER], unit_scale=0.001
         )
 

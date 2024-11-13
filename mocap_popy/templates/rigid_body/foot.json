@@ -1,0 +1,72 @@
+{
+    "name": "Foot",
+    "parent_models": [
+        "NUSHU_shoe_10_wholefoot"
+    ],
+    "symmetry": [
+        "Right",
+        "Left"
+    ],
+    "markers": [
+        "HB",
+        "HL",
+        "ML",
+        "TL",
+        "TF",
+        "TM",
+        "MM",
+        "HM"
+    ],
+    "marker_mapping": {
+        "2": "HB",
+        "3": "HL",
+        "4": "ML",
+        "5": "TL",
+        "6": "TF",
+        "7": "TM",
+        "8": "MM",
+        "9": "HM"
+    },
+    "segments": [
+        "HB-HM",
+        "HB-HL",
+        "HM-HL",
+        "HM-MM",
+        "HM-ML",
+        "HL-ML",
+        "HL-MM",
+        "MM-ML",
+        "MM-TM",
+        "ML-TL",
+        "TM-TL",
+        "TM-TF",
+        "TL-TF"
+    ],
+    "tolerances": {
+        "segments": {
+            "HB-HM": 0.1,
+            "HB-HL": 0.1,
+            "HM-HL": 0.1,
+            "HM-MM": 0.1,
+            "HM-ML": 0.1,
+            "HL-ML": 0.1,
+            "HL-MM": 0.1,
+            "MM-ML": 0.1,
+            "MM-TM": 0.1,
+            "ML-TL": 0.1,
+            "TM-TL": 0.1,
+            "TM-TF": 0.1,
+            "TL-TF": 0.1
+        },
+        "joints": {
+            "HB": 20,
+            "HL": 20,
+            "ML": 20,
+            "TL": 20,
+            "TF": 20,
+            "TM": 20,
+            "MM": 20,
+            "HM": 20
+        }
+    }
+}

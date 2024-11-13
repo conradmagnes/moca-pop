@@ -7,7 +7,9 @@ name = "mocap_popy"
 version = "1.0.0"
 requires-python = ">=3.11"
 dependencies=[
-    "numpy"
+    "numpy",
+    "c3d",
+    "matplotlib",
 ]
 
 [tool.setuptools]
@@ -17,7 +19,4 @@ packages = { find = { include = ["mocap_popy", "mocap_popy.*"], exclude = ["test
 mocap_popy = "mocap_popy"
 
 [project.optional-dependencies]
-test = [
-    "c3d",
-    "matplotlib",
-]
+test = []

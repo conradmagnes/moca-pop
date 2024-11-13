@@ -18,9 +18,7 @@ import logging
 
 import numpy as np
 
-import mocap_popy.config.logger as logger
-
-LOGGER = logger.setup_logger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
