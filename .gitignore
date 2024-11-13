@@ -1,0 +1,16 @@
+## OS Files
+**/.DS_Store
+**/*~
+
+## Python
+**/__pycache__
+**/*.pyc
+
+## Log files
+**/*.log
+
+## Environment files
+**/*.env
+
+## Exlude .egg folders (related to package distribution)
+*.egg*/

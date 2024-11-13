@@ -7,13 +7,25 @@ This repository contains python scripts for processing MoCap data.
 
 Clone this repo and install using pip. 
 
+```bash
+git clone git@github.com:conradmagnes/mocap_popy.git
+
+cd mocap_popy
+python -m pip install .
+```
+
 ## Repo Structure
 <pre>
 .
-|-- aux - Auxilary
-|-- scripts
-|   |-- unlabel_using_custom_vsk.py
-`-- tests - Testing
-
+|-- logs - Logging
+`-- mocap_popy
+    |-- aux - Auxilary
+    |-- config - Configuration
+    |-- scripts
+    |   |-- unlabel_using_custom_skeleton.py
+    `-- tests - Testing
 </pre>
-## Contributing
+
+## Usage
+
+
