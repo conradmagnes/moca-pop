@@ -12,6 +12,14 @@ git clone git@github.com:conradmagnes/mocap_popy.git
 
 cd mocap_popy
 python -m pip install .
+
+# to install in editable mode, use the following command
+python -m pip install -e .
+
+# to install optional test dependencies, use the following command
+python -m pip install .[test]
+# in zsh, escape the brackets using
+python -m pip install .\[test\]
 ```
 
 ## Repo Structure
