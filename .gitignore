@@ -14,3 +14,9 @@
 
 ## Exlude .egg folders (related to package distribution)
 *.egg*/
+
+## Plt files
+**/plt/*
+!**/plt/.git
+**/plts/*
+!**/plts/.git
