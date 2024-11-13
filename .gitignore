@@ -17,6 +17,6 @@
 
 ## Plt files
 **/plt/*
-!**/plt/.git
+!**/plt/.gitkeep
 **/plts/*
-!**/plts/.git
+!**/plts/.gitkeep
