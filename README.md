@@ -17,6 +17,7 @@ python -m pip install .
 ## Repo Structure
 <pre>
 .
+|-- example_datasets - Example datasets
 |-- logs - Logging
 `-- mocap_popy
     |-- aux - Auxilary

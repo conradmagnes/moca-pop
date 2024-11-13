@@ -11,7 +11,13 @@ dependencies=[
 ]
 
 [tool.setuptools]
-packages = { find = { include = ["mocap_popy", "mocap_popy.*"] } }
+packages = { find = { include = ["mocap_popy", "mocap_popy.*"], exclude = ["test", "*.test", "test.*", "*.test.*"] } }
 
 [tool.setuptools.package-dir]
 mocap_popy = "mocap_popy"
+
+[project.optional-dependencies]
+test = [
+    "c3d",
+    "matplotlib",
+]
