@@ -18,6 +18,8 @@ import logging
 
 import numpy as np
 
+import mocap_popy.utils.string_utils as str_utils
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -27,28 +29,43 @@ class Node:
     position: np.ndarray
     exists: bool
 
-    def get_connected_segments(self, segments: list["Segment"]) -> list["Segment"]:
+    def get_connected_segments(
+        self, segments: list["Segment"], only_existing: bool = False
+    ) -> list["Segment"]:
         """!Get segments from list connected to the node.
 
         @param segments List of segments to search.
         """
-        return [
-            seg for seg in segments if seg.exists and self.marker in seg.get_markers()
-        ]
+        existing_check = lambda seg: seg.exists if only_existing else True
+        return [seg for seg in segments if existing_check(seg) and self.marker in seg]
 
-    def get_connected_joints(self, joints: list["Joint"]) -> list["Joint"]:
+    def get_connected_joints(
+        self, joints: list["Joint"], only_existing: bool = False
+    ) -> list["Joint"]:
         """!Get joints from list connected to the node.
 
         @param joints List of joints to search.
         """
+        existing_check = lambda joint: joint.exists if only_existing else True
         return [
             joint
             for joint in joints
-            if joint.exists and self.marker == joint.node.marker
+            if existing_check(joint) and self.marker == joint.node.marker
         ]
 
     def __str__(self) -> str:
-        return f"{self.marker}: {np.round(self.position, 2)}"
+        return self.marker
+
+    def __repr__(self) -> str:
+        missing = " (missing)" if not self.exists else ""
+        return f"[Node] {self.marker}: pos={np.round(self.position, 2)}" + missing
+
+    @classmethod
+    def from_string(cls, marker: str):
+        """!Create a Node object from a marker string.
+        @note The position is set to [0, 0, 0] and exists is False.
+        """
+        return cls(marker, np.zeros(3), False)
 
 
 @dataclasses.dataclass
@@ -153,7 +170,32 @@ class Segment:
         return self.shares_nodes(other) and self.length == other.length
 
     def __str__(self) -> str:
-        return f"{self.node1.marker}-{self.node2.marker}: {round(self.length, 2)}"
+        return "-".join(self)
+
+    def __repr__(self) -> str:
+        rounded_attrs = [round(attr, 2) for attr in [self.length, self.tolerance]]
+        missing = " (missing)" if not self.exists else ""
+        return (
+            f"[Segment] {str(self)}: len={rounded_attrs[0]}, tol={rounded_attrs[1]}"
+            + missing
+        )
+
+    @classmethod
+    def from_tuple(cls, segment_tuple: tuple):
+        """!Create a Segment object from a tuple of markers."""
+        nodes = []
+        for m in segment_tuple:
+            if isinstance(m, Node):
+                nodes.append(m)
+            else:
+                nodes.append(Node.from_string(m))
+
+        return cls(*nodes)
+
+    @classmethod
+    def from_string(cls, segment_str: str):
+        """!Create a Segment object from a string of markers."""
+        return cls(*segment_str.split("-"))
 
 
 @dataclasses.dataclass
@@ -282,14 +324,32 @@ class Joint:
         return self.node == other.node and self.shares_segments(other)
 
     def __str__(self):
-        return f"{'-'.join(self)}: {round(self.angle, 2)}"
+        return "-".join(self)
+
+    def __repr__(self):
+        rounded_attrs = [round(attr, 2) for attr in [self.angle, self.tolerance]]
+        missing = " (missing)" if not self.exists else ""
+        return (
+            f"[Joint] {str(self)}: angle={rounded_attrs[0]}, tol={rounded_attrs[1]}"
+            + missing
+        )
+
+    @classmethod
+    def from_string(cls, joint_str: str):
+        """!Create a Joint object from a string of markers."""
+        markers = joint_str.split("-")
+        node = Node.from_string(markers[1])
+        seg1 = Segment.from_string(f"{markers[0]}-{markers[1]}")
+        seg2 = Segment.from_string(f"{markers[1]}-{markers[2]}")
+        return cls(node, seg1, seg2)
 
 
 class RigidBody:
     def __init__(
         self,
+        name: str,
         nodes: Union[list[str], list[Node]],
-        segments: Union[list[Segment], list[tuple]],
+        segments: Union[list[Segment], list[tuple], list[str]],
         segment_length_tolerances: list[float] = None,
         joint_angle_tolerances: list[float] = None,
         compute_segment_lengths: bool = False,
@@ -299,6 +359,7 @@ class RigidBody:
 
         Joints are inferred from the nodes and segments.
 
+        @param name Name of the rigid_body.
         @param nodes Node markers or Node objects.
         @param segments List of segment tuples or Segment objects.
         @param segment_length_tolerances Segment length tolerances. The list should match the order of segments.
@@ -306,34 +367,57 @@ class RigidBody:
         @param compute_segment_lengths Whether to compute segment lengths on initialization.
         @param compute_joint_angles Whether to compute joint angles on initialization.
         """
+        self.name = name
         self.nodes: list[Node] = []
         self.segments: list[Segment] = []
         self.joints: list[Joint] = []
 
-        for node in nodes:
-            if isinstance(node, str):
-                self.nodes.append(Node(node, np.zeros(3), False))
-            else:
-                self.nodes.append(Node(node.marker, node.position, node.exists))
+        self._generate_nodes(nodes)
+        self._generate_segments(
+            segments, compute_segment_lengths, segment_length_tolerances
+        )
+        self._generate_joints(compute_joint_angles, joint_angle_tolerances)
 
-        for i, seg in enumerate(segments):
-            tol = segment_length_tolerances[i] if segment_length_tolerances else 0
-            if isinstance(seg, tuple):
-                node1 = self.get_node(seg[0])
-                node2 = self.get_node(seg[1])
-                if node1 is None or node2 is None:
-                    LOGGER.debug(f"Node missing for segment {seg}")
-                    continue
-                segment = Segment(node1, node2, tolerance=tol)
+    def _generate_nodes(self, nodes: list[str]):
+        """!Generate nodes from a list of markers.
+        This is called during initialization and should not be called directly.
+        """
+        for node in nodes:
+            if isinstance(node, Node):
+                self.nodes.append(Node(node.marker, node.position, node.exists))
+            elif isinstance(node, str):
+                self.nodes.append(Node.from_string(node))
             else:
-                segment = Segment(seg.node1, seg.node2, tolerance=tol)
+                raise ValueError(
+                    f"Unrecognized input type for node: {type(node)}. Expected str or Node."
+                )
+
+    def _generate_segments(
+        self,
+        segments: list,
+        compute_segment_lengths: bool,
+        segment_length_tolerances: dict,
+    ):
+        """!Generate segments from a list of tuples or Segment objects.
+        This is called during initialization and should not be called directly.
+        """
+        for i, seg in enumerate(segments):
+            if isinstance(seg, Segment):
+                segment = Segment(seg.node1, seg.node2)
+            else:
+                m1, m2 = seg if isinstance(seg, tuple) else seg.split("-")
+                node1 = self.get_node(m1) or m1
+                node2 = self.get_node(m2) or m2
+                segment = Segment.from_tuple((node1, node2))
+
+            segment.tolerance = (
+                segment_length_tolerances[i] if segment_length_tolerances else 0
+            )
 
             if compute_segment_lengths:
                 segment.compute_length()
 
             self.segments.append(segment)
-
-        self._generate_joints(compute_joint_angles, joint_angle_tolerances)
 
     def _generate_joints(
         self, compute_angles: bool = False, angle_tolerances: list[float] = None
@@ -354,6 +438,16 @@ class RigidBody:
                     joint.compute_angle()
                 self.joints.append(joint)
 
+    def get_percent_complete(self) -> float:
+        """!Get the percentage of nodes that exist."""
+        if len(self.nodes) == 0:
+            return 0
+        return sum([node.exists for node in self.nodes]) / len(self.nodes)
+
+    def get_markers(self) -> list[str]:
+        """!Get the markers of all nodes."""
+        return [node.marker for node in self.nodes]
+
     def get_node(self, marker: str) -> Optional[Node]:
         """!Get a rigid_body node by marker."""
         for node in self.nodes:
@@ -368,12 +462,14 @@ class RigidBody:
                 return segment
         return None
 
-    def get_connected_segments(self, node: Union[str, Node]) -> list[Segment]:
+    def get_connected_segments(
+        self, node: Union[str, Node], only_existing: bool = False
+    ) -> list[Segment]:
         """!Get segments connected to a node."""
         node = node if isinstance(node, Node) else self.get_node(node)
         if node is None:
             return []
-        return node.get_connected_segments(self.segments)
+        return node.get_connected_segments(self.segments, only_existing)
 
     def get_joint(
         self, segment1: Union[Segment, tuple[str]], segment2: Union[Segment, tuple[str]]
@@ -384,12 +480,14 @@ class RigidBody:
                 return joint
         return None
 
-    def get_connected_joints(self, node: Union[str, Node]) -> list[Joint]:
+    def get_connected_joints(
+        self, node: Union[str, Node], only_existing: bool = False
+    ) -> list[Joint]:
         """!Get joints connected to a node."""
         node = node if isinstance(node, Node) else self.get_node(node)
         if node is None:
             return []
-        return node.get_connected_joints(self.joints)
+        return node.get_connected_joints(self.joints, only_existing)
 
     def compute_segment_lengths(self):
         """!Compute the lengths of all segments."""
@@ -444,7 +542,9 @@ class RigidBody:
         node = node if isinstance(node, Node) else self.get_node(node)
         if node is None:
             return 0, 0
-        connected_segments = node.get_connected_segments(self.segments)
+        connected_segments = node.get_connected_segments(
+            self.segments, only_existing=True
+        )
 
         return self.aggregate_residuals(connected_segments, average, ignore_tolerance)
 
@@ -463,7 +563,7 @@ class RigidBody:
         node = node if isinstance(node, Node) else self.get_node(node)
         if node is None:
             return 0, 0
-        connected_joints = node.get_connected_joints(self.joints)
+        connected_joints = node.get_connected_joints(self.joints, only_existing=True)
 
         return self.aggregate_residuals(connected_joints, average, ignore_tolerance)
 
@@ -495,7 +595,26 @@ class RigidBody:
         return tuple(agg_residuals)
 
     def __str__(self):
-        node_str = "\n".join([node.__str__() for node in self.nodes])
-        segments_str = "\n".join([seg.__str__() for seg in self.segments])
-        joint_str = "\n".join([joint.__str__() for joint in self.joints])
-        return f"Nodes:\n{node_str}\nSegments:\n{segments_str}\nJoints:\n{joint_str}"
+        return self.name
+
+    def __repr__(self):
+        node_break = str_utils.get_section_break_str("Nodes")
+        segment_break = str_utils.get_section_break_str("Segments")
+        joint_break = str_utils.get_section_break_str("Joints")
+
+        perc_complete = round(self.get_percent_complete() * 100)
+        name_str = f"({perc_complete}%) [RigidBody] {self.name}"
+        node_str = "\n".join([repr(node) for node in self.nodes])
+        segments_str = "\n".join([repr(seg) for seg in self.segments])
+        joint_str = "\n".join([repr(joint) for joint in self.joints])
+        return "".join(
+            [
+                name_str,
+                node_break,
+                node_str,
+                segment_break,
+                segments_str,
+                joint_break,
+                joint_str,
+            ]
+        )

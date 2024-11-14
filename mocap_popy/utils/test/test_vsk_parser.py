@@ -4,7 +4,7 @@ import unittest
 
 import mocap_popy.utils.vsk_parser as vsk_parser
 
-THIS_PATH = os.path.join(os.path.dirname(__file__))
+THIS_PATH = os.path.abspath(os.path.dirname(__file__))
 TEST_VSK_FILE = "test_nushu_wholefoot.vsk"
 TEST_VSK_FP = os.path.join(THIS_PATH, "data", TEST_VSK_FILE)
 

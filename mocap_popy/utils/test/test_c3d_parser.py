@@ -8,7 +8,7 @@ import mocap_popy.utils.c3d_parser as c3d_parser
 import mocap_popy.utils.plot_utils as plotUtils
 
 
-THIS_PATH = os.path.join(os.path.dirname(__file__))
+THIS_PATH = os.path.abspath(os.path.dirname(__file__))
 TEST_DATA_PATH = os.path.join(THIS_PATH, "data", "trial01.c3d")
 TEST_PLT_DIR = os.path.join(THIS_PATH, "plts")
 

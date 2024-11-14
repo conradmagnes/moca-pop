@@ -20,8 +20,8 @@ LOGGER = logging.getLogger(__name__)
 
 ## input args
 SUBJECT_NAME = "subject"  # mandatory, default New Subject (e.g. unnamed)
+RB_TEMPLATE_NAMES = "foot"  # comma separated list of body templates
 OFFLINE = True  # default False, flag
-RB_TEMPLATES = "foot"  # comma separated list of body templates
 
 ## offline args
 PROJECR_DIR = os.path.join(directory.DATASET_DIR, "shoe_stepping")
@@ -38,6 +38,12 @@ if not os.path.exists(path_to_c3d):
 if not os.path.exists(path_to_vsk):
     LOGGER.error(f"Path to VSK file does not exist: {path_to_vsk}")
     raise FileNotFoundError
+
+rb_template_list = RB_TEMPLATE_NAMES.split(",")
+rb_templates = {}
+for name in rb_template_list:
+    rb_template = rb.RigidBodyTemplate(name)
+    rb_templates[name] = rb_template
 
 # %%
 # if offline

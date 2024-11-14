@@ -2,7 +2,7 @@ import unittest as ut
 
 import numpy as np
 
-from mocap_popy.models.rigid_body import Node, Segment, Joint
+from mocap_popy.models.rigid_body import Node, Segment, Joint, RigidBody
 
 
 class TestRigidBody(ut.TestCase):
@@ -73,6 +73,25 @@ class TestRigidBody(ut.TestCase):
         self.assertTrue(j1 in [j1, j2])
         self.assertTrue(j1 in [j3, j4])
         self.assertFalse(j1 in [j3, j5])
+
+    def test_str_repr(self):
+        n1 = Node("m1", np.zeros(3), True)
+        n2 = Node("m2", np.zeros(3), False)
+        n3 = Node("m3", np.zeros(3), True)
+        s1 = Segment(n1, n2)
+        s2 = Segment(n2, n3)
+        j1 = Joint(n2, s1, s2)
+
+        body = RigidBody("body", [n1, n2, n3], [s1, s2])
+
+        print(n1)
+        print(repr(n1))
+        print(s1)
+        print(repr(s1))
+        print(j1)
+        print(repr(j1))
+        print(body)
+        print(repr(body))
 
 
 if __name__ == "__main__":

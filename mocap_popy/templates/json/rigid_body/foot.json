@@ -3,10 +3,6 @@
     "parent_models": [
         "NUSHU_shoe_10_wholefoot"
     ],
-    "symmetry": [
-        "Right",
-        "Left"
-    ],
     "markers": [
         "HB",
         "HL",

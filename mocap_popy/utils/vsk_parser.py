@@ -11,10 +11,7 @@ import re
 from typing import Union
 import xml.etree.ElementTree as ET
 
-
-SEGMENT_MARGER_RGX = (
-    r"^(?P<segment_name>.+)_(?P=segment_name)(?P<idx>\d+)_(?P<axis>[xyz])$"
-)
+from mocap_popy.config.regex import SEGMENT_PARAM_MARKER_RGX
 
 
 def parse_vsk(file_path: str) -> tuple:
@@ -70,7 +67,7 @@ def parse_marker_positions_by_segment(
 
     @return dict of marker positions in format {segment: {marker_index: (x, y, z)}}
     """
-    param_rgx = parameter_rgx or SEGMENT_MARGER_RGX
+    param_rgx = parameter_rgx or SEGMENT_PARAM_MARKER_RGX
 
     marker_positions = {}
     for param, value in parameters.items():
