@@ -13,21 +13,45 @@
 
 import dataclasses
 from itertools import combinations
-from typing import Union, Optional
+from typing import Union, Optional, Iterable
 import logging
 
 import numpy as np
 
+import mocap_popy.config.regex as regex
 import mocap_popy.utils.string_utils as str_utils
 
 LOGGER = logging.getLogger(__name__)
 
 
-@dataclasses.dataclass
 class Node:
-    marker: str
-    position: np.ndarray
-    exists: bool
+    def __init__(self, marker: str, position: np.ndarray = None, exists: bool = False):
+        if not regex.is_marker_string_valid(marker):
+            raise ValueError(f"Invalid marker string: {marker}")
+
+        self._marker = marker
+        self._position: np.ndarray = np.zeros(3) if position is None else position
+        self._exists: bool = exists
+
+    @property
+    def marker(self) -> str:
+        return self._marker
+
+    @property
+    def position(self) -> np.ndarray:
+        return self._position
+
+    @position.setter
+    def position(self, value: np.ndarray):
+        self._position = value
+
+    @property
+    def exists(self) -> bool:
+        return self._exists
+
+    @exists.setter
+    def exists(self, value: bool):
+        self._exists = value
 
     def get_connected_segments(
         self, segments: list["Segment"], only_existing: bool = False
@@ -53,6 +77,12 @@ class Node:
             if existing_check(joint) and self.marker == joint.node.marker
         ]
 
+    def __eq__(self, other: "Node") -> bool:
+        """!Equality indicates that the nodes share the same marker."""
+        if not isinstance(other, Node):
+            return False
+        return self.marker == other.marker
+
     def __str__(self) -> str:
         return self.marker
 
@@ -61,45 +91,120 @@ class Node:
         return f"[Node] {self.marker}: pos={np.round(self.position, 2)}" + missing
 
     @classmethod
-    def from_string(cls, marker: str):
-        """!Create a Node object from a marker string.
-        @note The position is set to [0, 0, 0] and exists is False.
-        """
-        return cls(marker, np.zeros(3), False)
+    def validate_nodes(
+        cls,
+        nodes: Iterable[Union["Node", str]],
+        generate_new: bool = False,
+        allow_duplicates: bool = False,
+    ):
+        def skip_duplicate(marker, markers, allow):
+            if marker in markers:
+                msg = f"Duplicate node marker: {marker}"
+                if not allow:
+                    raise ValueError(msg)
+                else:
+                    LOGGER.warning(msg)
+                    return True
+            return False
+
+        input_type = type(nodes)
+        valid_nodes = []
+        markers = []
+        for node in nodes:
+
+            if isinstance(node, Node):
+                if skip_duplicate(node.marker, markers, allow_duplicates):
+                    continue
+
+                if generate_new:
+                    valid_nodes.append(Node(node.marker, node.position, node.exists))
+                else:
+                    valid_nodes.append(node)
+                markers.append(node.marker)
+            elif isinstance(node, str):
+                if skip_duplicate(node, markers, allow_duplicates):
+                    continue
+
+                valid_nodes.append(Node(node))
+                markers.append(node)
+            else:
+                raise ValueError(
+                    f"Unrecognized input type for node: {type(node)}. Expected str or Node."
+                )
+        try:
+            return input_type(valid_nodes)
+        except TypeError:
+            return list(valid_nodes)
 
 
-@dataclasses.dataclass
 class Segment:
-    node1: Node
-    node2: Node
-    length: float = 0
-    tolerance: float = 0
-    residual_calib: float = 0
-    residual_prior: float = 0
+    def __init__(
+        self,
+        nodes: Union[str, tuple[Union[Node, str], Union[Node, str]]],
+        length: float = 0,
+        tolerance: float = 0,
+    ):
+        """!A segment connects two nodes in 3D space.
+
+        @param nodes Either a string in format '<marker1>-<marker2>' or a tuple of Node objects or markers.
+        @param length Length of the segment.
+        @param tolerance Tolerance for the segment length. (Should be expressed as a fraction of the length.)
+        """
+        if isinstance(nodes, str) and regex.is_segment_string_valid(nodes):
+            nodes = nodes.split("-")
+
+        if len(nodes) != 2:
+            raise ValueError("Segment must be valid string or have exactly 2 nodes.")
+
+        self._nodes = Node.validate_nodes(nodes)
+        self._length = length
+        self._tolerance = tolerance
+        self._residual_calib = 0
+        self._residual_prior = 0
+
+    @property
+    def nodes(self) -> list[Node]:
+        return self._nodes
+
+    @property
+    def length(self) -> float:
+        return self._length
+
+    @property
+    def tolerance(self) -> float:
+        return self._tolerance
+
+    @tolerance.setter
+    def tolerance(self, value: float):
+        self._tolerance = value
+
+    @property
+    def residual_calib(self) -> float:
+        return self._residual_calib
+
+    @property
+    def residual_prior(self) -> float:
+        return self._residual_prior
 
     @property
     def exists(self) -> bool:
         """!Whether the segment exists."""
-        return self.node1.exists and self.node2.exists
-
-    def get_nodes(self) -> list[Node]:
-        """!Get the nodes connected by the segment."""
-        return [self.node1, self.node2]
+        return all([node.exists for node in self.nodes])
 
     def get_markers(self) -> list[str]:
         """!Get the markers connected by the segment."""
-        return [self.node1.marker, self.node2.marker]
+        return [node.marker for node in self.nodes]
 
     def get_vector(self) -> np.ndarray:
         """!Get the vector between the two nodes."""
-        return self.node2.position - self.node1.position
+        return self.nodes[1].position - self.nodes[0].position
 
     def compute_length(self):
         """!Compute and store the length of the segment."""
         if self.exists:
-            self.length = np.linalg.norm(self.get_vector())
+            self._length = np.linalg.norm(self.get_vector())
         else:
-            self.length = 0
+            self._length = 0
 
     def compute_residuals(
         self, rigid_body_calib: "RigidBody" = None, rigid_body_prior: "RigidBody" = None
@@ -114,10 +219,10 @@ class Segment:
         @param rigid_body_prior RigidBody object with prior segment lengths.
         """
 
-        self.residual_calib, ref_length = self.get_segment_residual_and_reference(
+        self._residual_calib, ref_length = self.get_segment_residual_and_reference(
             rigid_body_calib
         )
-        self.residual_prior, _ = self.get_segment_residual_and_reference(
+        self._residual_prior, _ = self.get_segment_residual_and_reference(
             rigid_body_prior, ref_length
         )
 
@@ -139,25 +244,19 @@ class Segment:
         if rigid_body is None:
             return res, ref_length
 
-        seg = rigid_body.get_segment(*self.get_markers())
+        seg = rigid_body.get_segment(self)
         if seg is not None and seg.exists and seg.length != 0:
             ref_length = reference_length or seg.length
             res = (self.length - seg.length) / ref_length
         return res, ref_length
 
-    def shares_nodes(self, other: Union["Segment", tuple]) -> bool:
+    def shares_nodes(self, other: Union["Segment", tuple, str]) -> bool:
         """!Check if two segments share the same nodes.
 
         @param other Segment or tuple of markers.
         """
-
-        if isinstance(other, tuple):
-            other_markers = [t.marker if isinstance(t, Node) else t for t in other]
-        elif isinstance(other, Segment):
-            other_markers = other
-        else:
-            raise ValueError(f"Unrecognized input type for comparison: {type(other)}.")
-        return len(set(self).intersection(other_markers)) == 2
+        other_seg = Segment.validate_segments([other])[0]
+        return len(set(self).intersection(other_seg)) == 2
 
     def __iter__(self):
         """!Iterate over the markers of the segment."""
@@ -181,68 +280,114 @@ class Segment:
         )
 
     @classmethod
-    def from_tuple(cls, segment_tuple: tuple):
-        """!Create a Segment object from a tuple of markers."""
-        nodes = []
-        for m in segment_tuple:
-            if isinstance(m, Node):
-                nodes.append(m)
+    def validate_segments(
+        cls,
+        segments: Iterable[Union[str, tuple, "Segment"]],
+        generate_new: bool = False,
+    ):
+        input_type = type(segments)
+        valid_segments = []
+        for seg in segments:
+            if isinstance(seg, Segment):
+                if generate_new:
+                    valid_segments.append(Segment(seg.nodes))
+                else:
+                    valid_segments.append(seg)
+            elif isinstance(seg, (tuple, str, list)):
+                valid_segments.append(Segment(seg))
             else:
-                nodes.append(Node.from_string(m))
+                raise ValueError(
+                    f"Unrecognized input type for segment: {type(seg)}. Expected str, tuple, or Segment."
+                )
+        try:
+            return input_type(valid_segments)
+        except TypeError:
+            return list(valid_segments)
 
-        return cls(*nodes)
 
-    @classmethod
-    def from_string(cls, segment_str: str):
-        """!Create a Segment object from a string of markers."""
-        return cls(*segment_str.split("-"))
-
-
-@dataclasses.dataclass
 class Joint:
-    node: Node
-    segment1: Segment
-    segment2: Segment
-    angle: float = 0
-    tolerance: float = 0
-    residual_calib: float = 0
-    residual_prior: float = 0
+    def __init__(
+        self,
+        segments: Union[str, tuple[Union[str, tuple, Segment]]],
+        angle: float = 0,
+        tolerance: float = 0,
+    ):
+        """!A joint connects two segments at a shared node.
 
-    def __post_init__(self):
-        if (
-            self.node not in self.segment1.get_nodes()
-            or self.node not in self.segment2.get_nodes()
-        ):
-            raise ValueError("Node not connected to both segments.")
+        @param segments Either a string in format '<marker1>-<marker2>-<marker3>' or a tuple of Segment types.
+        @param angle Angle of the joint.
+        @param tolerance Tolerance for the joint angle.
+        """
+
+        if isinstance(segments, str) and regex.is_joint_string_valid(segments):
+            segments = segments.split("-")
+
+        if len(segments) == 3:
+            segments = Segment.validate_segments((segments[:2], segments[1:]))
+        elif len(segments) != 2:
+            raise ValueError(
+                "Joint must be valid string or tuple of markers or have exactly 2 segments."
+            )
+
+        segments = Segment.validate_segments(segments)
+        shared_node = self.determine_shared_node(segments)
+        if shared_node is None:
+            raise ValueError("No common node between segments.")
+
+        self._segments = segments
+        self._node = shared_node
+        self._angle = angle
+        self._tolerance = tolerance
+        self._residual_calib = 0
+        self._residual_prior = 0
+
+    @property
+    def segments(self):
+        return self._segments
+
+    @property
+    def node(self):
+        return self._node
+
+    @property
+    def angle(self):
+        return self._angle
+
+    @property
+    def tolerance(self):
+        return self._tolerance
+
+    @property
+    def residual_calib(self):
+        return self._residual_calib
+
+    @property
+    def residual_prior(self):
+        return self._residual_prior
 
     @property
     def exists(self):
         """!Whether the joint exists (i.e. both segments exist)."""
-        return self.segment1.exists and self.segment2.exists
+        return all([seg.exists for seg in self.segments])
 
     def get_nodes(self) -> list[Node]:
         """!Get the nodes connected to the joint. Shared node is in the middle."""
-        second_node = [node for node in self.segment1.get_nodes() if node != self.node][
-            0
-        ]
-        third_node = [node for node in self.segment2.get_nodes() if node != self.node][
-            0
+        all_nodes = [node for segment in self.segments for node in segment.nodes]
+        sorted_nodes = sorted(all_nodes, key=lambda node: node.marker)
+        unique = [
+            i for i, node in enumerate(sorted_nodes) if node.marker != self._node.marker
         ]
 
-        return [second_node, self.node, third_node]
+        return [sorted_nodes[unique[0]], self._node, sorted_nodes[unique[1]]]
 
     def get_markers(self) -> list[str]:
         """!Get the markers connected to the joint."""
         return [node.marker for node in self.get_nodes()]
 
-    def get_segments(self) -> list[Segment]:
-        """!Get the segments connected to the joint."""
-        return [self.segment1, self.segment2]
-
     def compute_angle(self):
         """!Compute the angle between two segments."""
         if not self.exists:
-            self.angle = 0
+            self._angle = 0
             return
 
         nodes = self.get_nodes()
@@ -253,13 +398,13 @@ class Joint:
         norm_v2 = np.linalg.norm(v2)
 
         if norm_v1 == 0 or norm_v2 == 0:
-            self.angle = 0
+            self._angle = 0
             return
 
         cos_theta = np.clip(np.dot(v1, v2) / (norm_v1 * norm_v2), -1.0, 1.0)
 
         angle_rad = np.arccos(cos_theta)
-        self.angle = np.degrees(angle_rad)
+        self._angle = np.degrees(angle_rad)
 
     def compute_residuals(
         self, rigid_body_calib: "RigidBody" = None, rigid_body_prior: "RigidBody" = None
@@ -272,8 +417,8 @@ class Joint:
         @param rigid_body_calib RigidBody object with calibrated joint angles.
         @param rigid_body_prior RigidBody object with prior joint angles.
         """
-        self.residual_calib = self.get_joint_residual(rigid_body_calib)
-        self.residual_prior = self.get_joint_residual(rigid_body_prior)
+        self._residual_calib = self.get_joint_residual(rigid_body_calib)
+        self._residual_prior = self.get_joint_residual(rigid_body_prior)
 
     def get_joint_residual(self, rigid_body: "RigidBody"):
         """!Compute the residual of the joint angle relative to a rigid_body.
@@ -284,44 +429,36 @@ class Joint:
         if rigid_body is None:
             return res
 
-        joint = rigid_body.get_joint(self.segment1, self.segment2)
+        joint = rigid_body.get_joint(self.segments)
         if joint is not None and joint.exists and joint.angle != 0:
-            res = self.angle - joint.angle
+            res = self._angle - joint.angle
         return res
 
-    def shares_segments(self, other: Union["Joint", tuple]) -> bool:
+    def shares_segments(self, other: Union["Joint", tuple, str]) -> bool:
         """!Check if two joints share the same segments (as indicated by their node markers).
 
         @param other Joint or tuple of segments.
         """
-        if isinstance(other, tuple):
-            segments: list[Segment] = []
-            for ot in other:
-                try:
-                    if isinstance(ot, Segment):
-                        segments.append(ot)
-                    else:
-                        segments.append(Segment(ot[0], ot[1]))
-                except IndexError:
-                    raise ValueError(
-                        f"Unrecognized input type for comparison: {tuple([type(ot) for ot in other])}."
-                    )
-
-            other_joint = Joint(self.node, segments[0], segments[1])
+        if isinstance(other, Joint):
+            joint_str = str(other)
+        elif isinstance(other, tuple):
+            joint_str = str(Joint(other))
+        elif isinstance(other, str):
+            joint_str = other
         else:
-            other_joint = other
+            raise ValueError(f"Unrecognized input type for comparison: {type(other)}.")
 
-        return len(set(self).intersection(other_joint)) == 3
+        return joint_str == str(self)
 
     def __iter__(self):
         """!Iterate over the markers of the joint."""
         return iter(self.get_markers())
 
     def __eq__(self, other) -> bool:
-        """!Equality indicates that the joints share the same node and segments."""
+        """!Equality indicates that the joints share the same segments and have the same angle."""
         if not isinstance(other, Joint):
             return False
-        return self.node == other.node and self.shares_segments(other)
+        return self.shares_segments(other) and self.angle == other.angle
 
     def __str__(self):
         return "-".join(self)
@@ -335,13 +472,15 @@ class Joint:
         )
 
     @classmethod
-    def from_string(cls, joint_str: str):
-        """!Create a Joint object from a string of markers."""
-        markers = joint_str.split("-")
-        node = Node.from_string(markers[1])
-        seg1 = Segment.from_string(f"{markers[0]}-{markers[1]}")
-        seg2 = Segment.from_string(f"{markers[1]}-{markers[2]}")
-        return cls(node, seg1, seg2)
+    def determine_shared_node(cls, segments) -> Node:
+        """!Get the node shared by the segments."""
+        if len(segments) != 2:
+            return None
+        seg1, seg2 = segments
+        shared = [node for node in seg1.nodes if node in seg2.nodes]
+        if len(shared) == 1:
+            return shared[0]
+        return None
 
 
 class RigidBody:
@@ -350,8 +489,8 @@ class RigidBody:
         name: str,
         nodes: Union[list[str], list[Node]],
         segments: Union[list[Segment], list[tuple], list[str]],
-        segment_length_tolerances: list[float] = None,
-        joint_angle_tolerances: list[float] = None,
+        segment_length_tolerances: Union[list[float], dict[str, float]] = None,
+        joint_angle_tolerances: Union[list[float], dict[str, float]] = None,
         compute_segment_lengths: bool = False,
         compute_joint_angles: bool = False,
     ):
@@ -362,87 +501,112 @@ class RigidBody:
         @param name Name of the rigid_body.
         @param nodes Node markers or Node objects.
         @param segments List of segment tuples or Segment objects.
-        @param segment_length_tolerances Segment length tolerances. The list should match the order of segments.
-        @param joint_angle_tolerance Joint angle tolerances. Angles are in degrees and set by node. The list should match the order of nodes.
+        @param segment_length_tolerances Segment length tolerances. Should be a dict with {str(segment): float} or list of floats.
+        @param joint_angle_tolerance Joint angle tolerances. Angles are in degrees and set by node.
+                Should be a dict with {str(node): float} or list of floats.
         @param compute_segment_lengths Whether to compute segment lengths on initialization.
         @param compute_joint_angles Whether to compute joint angles on initialization.
         """
-        self.name = name
-        self.nodes: list[Node] = []
-        self.segments: list[Segment] = []
-        self.joints: list[Joint] = []
-
-        self._generate_nodes(nodes)
-        self._generate_segments(
+        self._name = name
+        self._nodes: list[Node] = Node.validate_nodes(nodes, generate_new=True)
+        self._segments: list[Segment] = self.generate_segments(
             segments, compute_segment_lengths, segment_length_tolerances
         )
-        self._generate_joints(compute_joint_angles, joint_angle_tolerances)
+        self._joints: list[Joint] = self.generate_joints(
+            self._segments, compute_joint_angles, joint_angle_tolerances
+        )
 
-    def _generate_nodes(self, nodes: list[str]):
-        """!Generate nodes from a list of markers.
-        This is called during initialization and should not be called directly.
-        """
-        for node in nodes:
-            if isinstance(node, Node):
-                self.nodes.append(Node(node.marker, node.position, node.exists))
-            elif isinstance(node, str):
-                self.nodes.append(Node.from_string(node))
-            else:
-                raise ValueError(
-                    f"Unrecognized input type for node: {type(node)}. Expected str or Node."
-                )
+    @property
+    def name(self) -> str:
+        return self._name
 
-    def _generate_segments(
-        self,
-        segments: list,
-        compute_segment_lengths: bool,
-        segment_length_tolerances: dict,
-    ):
-        """!Generate segments from a list of tuples or Segment objects.
-        This is called during initialization and should not be called directly.
-        """
-        for i, seg in enumerate(segments):
-            if isinstance(seg, Segment):
-                segment = Segment(seg.node1, seg.node2)
-            else:
-                m1, m2 = seg if isinstance(seg, tuple) else seg.split("-")
-                node1 = self.get_node(m1) or m1
-                node2 = self.get_node(m2) or m2
-                segment = Segment.from_tuple((node1, node2))
+    @property
+    def nodes(self) -> list[Node]:
+        return self._nodes
 
-            segment.tolerance = (
-                segment_length_tolerances[i] if segment_length_tolerances else 0
-            )
+    @property
+    def segments(self) -> list[Segment]:
+        return self._segments
 
-            if compute_segment_lengths:
-                segment.compute_length()
+    @property
+    def joints(self) -> list[Joint]:
+        return self._joints
 
-            self.segments.append(segment)
-
-    def _generate_joints(
-        self, compute_angles: bool = False, angle_tolerances: list[float] = None
-    ):
-        """!Generate joints for all nodes and connected segments.
-        This is called during initialization and should not be called directly.
-        """
-        self.joints = []
-        for i, node in enumerate(self.nodes):
-            connected_segments = node.get_connected_segments(self.segments)
-            if len(connected_segments) < 2:
-                continue
-
-            tol = angle_tolerances[i] if angle_tolerances else 0
-            for seg1, seg2 in combinations(connected_segments, 2):
-                joint = Joint(node=node, segment1=seg1, segment2=seg2, tolerance=tol)
-                if compute_angles:
-                    joint.compute_angle()
-                self.joints.append(joint)
-
-    def get_percent_complete(self) -> float:
+    @property
+    def percent_complete(self) -> float:
         """!Get the percentage of nodes that exist."""
         if len(self.nodes) == 0:
             return 0
         return sum([node.exists for node in self.nodes]) / len(self.nodes)
+
+    def generate_segments(
+        self,
+        segments: list,
+        compute_segment_lengths: bool,
+        segment_length_tolerances: Union[dict, list],
+    ) -> list[Segment]:
+        """!Generate segments from a list of tuples or Segment objects.
+        Uses own nodes to create segments, if available.
+
+        @param segments List of segment tuples or Segment objects.
+        @param compute_segment_lengths Whether to compute segment lengths on initialization.
+        @param segment_length_tolerances Segment length tolerances. Either dict with {str(segment): float} or list of floats.
+        """
+        own_segments = []
+        for i, seg in enumerate(segments):
+            if isinstance(seg, Segment):
+                nodes = seg.nodes
+            else:
+                nodes = Segment(seg).nodes
+
+            nodes = [self.get_node(node.marker) or node for node in nodes]
+            segment = Segment(nodes)
+
+            if isinstance(segment_length_tolerances, dict):
+                segment.tolerance = segment_length_tolerances.get(str(segment), 0)
+            elif isinstance(segment_length_tolerances, list):
+                segment.tolerance = segment_length_tolerances[i]
+
+            if compute_segment_lengths:
+                segment.compute_length()
+
+            own_segments.append(segment)
+        return own_segments
+
+    def generate_joints(
+        self,
+        segments: Optional[list] = None,
+        compute_angles: bool = False,
+        angle_tolerances: Union[list[float], dict] = None,
+    ) -> list[Joint]:
+        """!Generate joints for all nodes and connected segments.
+
+        @param segments Optional list of segments to use for joint generation. Otherwise, uses own segments.
+        @param compute_angles Whether to compute joint angles on initialization.
+        @param angle_tolerances Joint angle tolerances. Either dict with {str(node): float} or list of floats.
+        """
+        joints = []
+        segments = segments or self.segments
+        for i, node in enumerate(self.nodes):
+            connected_segments = node.get_connected_segments(segments)
+            if len(connected_segments) < 2:
+                continue
+
+            if isinstance(angle_tolerances, dict):
+                tol = angle_tolerances.get(node.marker, 0)
+            elif isinstance(angle_tolerances, list):
+                tol = angle_tolerances[i]
+            else:
+                tol = 0
+
+            for segs in combinations(connected_segments, 2):
+                joint = Joint(segments=segs, tolerance=tol)
+                if compute_angles:
+                    joint.compute_angle()
+
+                joints.append(joint)
+
+        return joints
 
     def get_markers(self) -> list[str]:
         """!Get the markers of all nodes."""
@@ -455,10 +619,10 @@ class RigidBody:
                 return node
         return None
 
-    def get_segment(self, marker1: str, marker2: str) -> Optional[Segment]:
+    def get_segment(self, markers: Union[Segment, tuple, str]) -> Optional[Segment]:
         """!Get a rigid_body segment by markers."""
         for segment in self.segments:
-            if segment.shares_nodes((marker1, marker2)):
+            if segment.shares_nodes(markers):
                 return segment
         return None
 
@@ -471,12 +635,10 @@ class RigidBody:
             return []
         return node.get_connected_segments(self.segments, only_existing)
 
-    def get_joint(
-        self, segment1: Union[Segment, tuple[str]], segment2: Union[Segment, tuple[str]]
-    ) -> Optional[Joint]:
+    def get_joint(self, segments: Union[Joint, tuple, str]) -> Optional[Joint]:
         """!Get a rigid_body joint by segments."""
         for joint in self.joints:
-            if joint.shares_segments((segment1, segment2)):
+            if joint.shares_segments(segments):
                 return joint
         return None
 
@@ -548,7 +710,7 @@ class RigidBody:
 
         return self.aggregate_residuals(connected_segments, average, ignore_tolerance)
 
-    def get_aggregate_joint_residual(
+    def get_aggregate_joint_residuals(
         self,
         node: Union[str, Node],
         average: bool = False,
@@ -602,7 +764,7 @@ class RigidBody:
         segment_break = str_utils.get_section_break_str("Segments")
         joint_break = str_utils.get_section_break_str("Joints")
 
-        perc_complete = round(self.get_percent_complete() * 100)
+        perc_complete = round(self.percent_complete * 100)
         name_str = f"({perc_complete}%) [RigidBody] {self.name}"
         node_str = "\n".join([repr(node) for node in self.nodes])
         segments_str = "\n".join([repr(seg) for seg in self.segments])

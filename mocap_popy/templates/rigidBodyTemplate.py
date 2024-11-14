@@ -12,7 +12,7 @@ import logging
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 import mocap_popy.config.regex as regex
-from mocap_popy.models.rigid_body import RigidBody, Node, Segment
+from mocap_popy.models.rigid_body import RigidBody
 
 LOGGER = logging.getLogger(__name__)
 
@@ -71,13 +71,11 @@ class RigidBodyTemplate(BaseModel):
 
         @return RigidBody instance.
         """
-        nodes = [Node.from_string(marker) for marker in self.markers]
-        segments = [Segment.from_string(segment) for segment in self.segments]
 
         return RigidBody(
             name=self.name,
-            nodes=nodes,
-            segments=segments,
+            nodes=self.markers,
+            segments=self.segments,
             segment_length_tolerances=self.tolerances["segment"],
             joint_angle_tolerances=self.tolerances["joint"],
         )

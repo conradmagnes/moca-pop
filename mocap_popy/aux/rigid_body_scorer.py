@@ -105,7 +105,7 @@ def score_rigid_body_components(
                 ignore_residual_tolerances,
             )
         else:
-            res = rigid_body.get_aggregate_joint_residual(
+            res = rigid_body.get_aggregate_joint_residuals(
                 m,
                 rigid_body_prior,
                 aggregate_using_average,
