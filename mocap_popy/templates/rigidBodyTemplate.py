@@ -12,19 +12,15 @@ import logging
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 import mocap_popy.config.regex as regex
+from mocap_popy.templates.baseTemplate import BaseTemplate
 from mocap_popy.models.rigid_body import RigidBody
 
 LOGGER = logging.getLogger(__name__)
 
 
-class RigidBodyTemplate(BaseModel):
-    name: str
+class RigidBodyTemplate(BaseTemplate):
     markers: list[str] = Field(description="List of marker strings")
     segments: list[str] = Field(description="List of segment strings")
-    parent_models: list[str] = Field(
-        description="List of models (labeling skeleton templates) that contain this rigid body template",
-        default_factory=list,
-    )
     param_index_marker_mapping: dict[str, str] = Field(
         description="Mapping of index used in segment parameters to marker name",
         default_factory=dict,

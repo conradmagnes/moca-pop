@@ -6,30 +6,42 @@ import datetime
 
 import mocap_popy.config.directory as sys_dir
 
-SETUP_SUBPROCESS_CALLS = [
-    f"mkdir -p {sys_dir.LOG_DIR}",
-]
-
-SUBPROCESS_CALL_KWARGS = {"shell": True}
 
 TIME_STR_FMT = "%Y-%m-%d %H:%M:%S"
 NOW_TIMESTAMP = datetime.datetime.now()
 NOW_STRING = NOW_TIMESTAMP.strftime(TIME_STR_FMT)
 
-LOG_FILENAME = "mocap_popy"
+DEFAULT_LOG_FILENAME = "mocap_popy"
+DEFAULT_LOGGING_MODE = "off"
+DEFAULT_LOGGING_FMT = "%(asctime)s [%(name)s:%(levelname)s] %(message)s"
+DEFAULT_LOGGING_LEVEL = logging.INFO
 
-LOGGING_MODE = "a"
-LOGGING_FMT = "%(asctime)s [%(name)s:%(levelname)s] %(message)s"
-LOGGING_LEVEL = logging.INFO
 
-
-def set_root_logger():
+def set_root_logger(
+    name: str = None, mode: str = None, fmt: str = None, level: int = None
+):
     """!Set the root logger (useful to reference same file after renaming)"""
-    params = {"level": LOGGING_LEVEL, "format": LOGGING_FMT}
+    name = name or DEFAULT_LOG_FILENAME
+    mode = mode or DEFAULT_LOGGING_MODE
+    fmt = fmt or DEFAULT_LOGGING_FMT
+    level = level or DEFAULT_LOGGING_LEVEL
+
+    stream_handler = generate_stream_handler()
+    file_handler = generate_file_handler(name=name, mode=mode)
+    params = {
+        "level": level,
+        "format": fmt,
+        "handlers": [stream_handler, file_handler],
+    }
 
     logging.basicConfig(**params, force=True)
-    logging.root.addHandler(generate_stream_handler())
-    logging.root.addHandler(generate_file_handler())
+
+
+def synchronize_logger(logger_name: str = None):
+    """Ensure custom logger inherits root logger's handlers."""
+    logger = logging.getLogger(logger_name or "")
+    logger.handlers = logging.root.handlers
+    logger.setLevel(logging.root.level)
 
 
 def generate_log_filename(name: str, timestamp: str = None):
@@ -49,19 +61,18 @@ def generate_file_handler(name: str = None, mode: str = None):
     @param mode Mode for the file handler. Default is 'a' (append).
             User "off" or "none" to disable logging to file.
     """
-    mode = mode or LOGGING_MODE
+    current = get_file_handler()
+    if mode is None:
+        mode = current.mode if current is not None else DEFAULT_LOGGING_MODE
+
     if mode is None or mode in ["", "none", "off"]:
         return logging.NullHandler()
 
-    name = name or LOG_FILENAME
-    filename = generate_log_filename(name)
+    basename = name or DEFAULT_LOG_FILENAME
+    filename = generate_log_filename(basename)
 
-    try:
-        return logging.FileHandler(os.path.join(sys_dir.LOG_DIR, filename), mode=mode)
-    except FileNotFoundError:
-        for ssc in SETUP_SUBPROCESS_CALLS:
-            subprocess.call(ssc, **SUBPROCESS_CALL_KWARGS)
-
+    os.makedirs(sys_dir.LOG_DIR, exist_ok=True)
+    print(os.path.join(sys_dir.LOG_DIR, filename))
     return logging.FileHandler(os.path.join(sys_dir.LOG_DIR, filename), mode=mode)
 
 
@@ -89,65 +100,36 @@ def get_stream_handler():
 def set_logging_mode(mode: str):
     """!Set the LOGGING_MODE for the logging handlers.
 
-    NOTE: This should be done prior to naming the logfile and setting the root logger.
-
     @param mode Log mode (e.g. 'w', 'a', 'r+')
     """
-    global LOGGING_MODE
-    LOGGING_MODE = mode
-
-    current_file_handler = get_file_handler()
-    if current_file_handler is not None:
-        logging.root.removeHandler(current_file_handler)
-        current_file_handler.close()
-        filename = current_file_handler.baseFilename
-
-        new_file_handler = generate_file_handler(name=filename, mode=mode)
-        logging.root.addHandler(new_file_handler)
+    current = get_file_handler()
+    if current is None:
+        current = generate_file_handler(mode=mode)
+        if current is not None:
+            logging.root.addHandler(current)
+    else:
+        current.mode = mode
 
 
-def set_logging_filename(name: str):
-    """!Set the logging filename in the logging configuration options
+def set_global_logging_level(level: int):
+    """Set Logging Level globally
 
-    This function enables the usage of this configuration file across
-    multiple test scripts, while generating personalized test log files.
-
-    @param fn Target logfile name (timestamp will be appended)
-    """
-    global LOG_FILENAME
-
-    filename = generate_log_filename(name)
-    LOG_FILENAME = filename
-
-    current_file_handler = get_file_handler()
-    if current_file_handler is not None:
-        logging.root.removeHandler(current_file_handler)
-        current_file_handler.close()
-
-        new_file_handler = generate_file_handler(name=filename)
-        logging.root.addHandler(new_file_handler)
-
-
-def set_logging_level(logger_names: list, level: int):
-    """Set Logging Level
-
-    @param logger_names list of logger names to set
     @param level logging level number
     """
+    for obj in logging.root.manager.loggerDict.values():
+        if isinstance(obj, logging.Logger):
+            obj.setLevel(level)
 
-    for name in logger_names:
-        logger = logging.getLogger(name)
-        logger.setLevel(level)
 
-
-def toggle_loggers(state: bool):
-    """!Turn Off Logging
-
-    @param which state to toggle them to `True`, `False`, logging on and off respectively
-    """
-
+def toggle_loggers(state: bool, logger_names: list = None):
+    """Toggle logging state for specified loggers or all loggers."""
     _level = logging.NOTSET if state else logging.CRITICAL + 1
 
-    for name in logging.root.manager.loggerDict:
-        logger = logging.getLogger(name)
+    loggers = (
+        [logging.getLogger(name) for name in logger_names]
+        if logger_names
+        else logging.root.manager.loggerDict.values()
+    )
+
+    for logger in loggers:
         logger.setLevel(_level)

@@ -1,10 +1,30 @@
 import os
 
-CONFIG_DIR = os.path.join(os.path.dirname(__file__))
-SRC_DIR = os.path.dirname(CONFIG_DIR)
-ROOT_DIR = os.path.dirname(SRC_DIR)
+
+def find_root_dir():
+    """Recursively search upwards for the project root directory."""
+    marker = "mocap_popy"
+    current_dir = os.path.abspath(os.getcwd())
+
+    while True:
+        if os.path.basename(current_dir) == marker and os.path.exists(
+            os.path.join(current_dir, marker)
+        ):
+            return current_dir
+
+        parent_dir = os.path.dirname(current_dir)
+        if parent_dir == current_dir:
+            break
+        current_dir = parent_dir
+
+    raise RuntimeError(f"Root directory with marker '{marker}' not found.")
+
+
+ROOT_DIR = find_root_dir()
 
 # paths under root
+SRC_DIR = os.path.join(ROOT_DIR, "mocap_popy")
+CONFIG_DIR = os.path.join(ROOT_DIR, "config")
 LOG_DIR = os.path.join(ROOT_DIR, "logs")
 DATASET_DIR = os.path.join(ROOT_DIR, "example_datasets")
 
@@ -12,3 +32,5 @@ DATASET_DIR = os.path.join(ROOT_DIR, "example_datasets")
 TEMPLATES_DIR = os.path.join(SRC_DIR, "templates")
 JSON_TEMPLATES_DIR = os.path.join(TEMPLATES_DIR, "json")
 RIGID_BODY_JSON_DIR = os.path.join(JSON_TEMPLATES_DIR, "rigid_body")
+
+TEMPLATE_FILE_MAPPING = os.path.join(TEMPLATES_DIR, "template_file_mapping.json")
