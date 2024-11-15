@@ -55,8 +55,8 @@ class TestVskParser(unittest.TestCase):
         marker_positions = vsk_parser.parse_marker_positions_by_segment(TEST_PARAMETERS)
 
         expected_res = {
-            "Right_Foot": {1: (0.918, -3.961, 0.293)},
-            "Left_Foot": {2: (0.123, -3.456, 0.789)},
+            "Right_Foot": {"1": (0.918, -3.961, 0.293)},
+            "Left_Foot": {"2": (0.123, -3.456, 0.789)},
         }
         self.assertEqual(marker_positions, expected_res)
 
@@ -68,7 +68,7 @@ class TestVskParser(unittest.TestCase):
         )
 
         formatted_by_dict = vsk_parser.format_marker_positions(
-            marker_positions, {"Right_Foot": {1: "R1"}, "Left_Foot": {2: "L2"}}
+            marker_positions, {"Right_Foot": {"1": "R1"}, "Left_Foot": {"2": "L2"}}
         )
 
         expected_res = {

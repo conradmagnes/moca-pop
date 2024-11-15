@@ -25,13 +25,15 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Node:
-    def __init__(self, marker: str, position: np.ndarray = None, exists: bool = False):
+    def __init__(self, marker: str, position: np.ndarray = None, exists: bool = None):
         if not regex.is_marker_string_valid(marker):
             raise ValueError(f"Invalid marker string: {marker}")
 
         self._marker = marker
-        self._position: np.ndarray = np.zeros(3) if position is None else position
+        self._position: np.ndarray = self.validate_position(position)
         self._exists: bool = exists
+        if exists is None:
+            self.update_exists()
 
     @property
     def marker(self) -> str:
@@ -44,6 +46,7 @@ class Node:
     @position.setter
     def position(self, value: np.ndarray):
         self._position = value
+        self.update_exists()
 
     @property
     def exists(self) -> bool:
@@ -89,6 +92,26 @@ class Node:
     def __repr__(self) -> str:
         missing = " (missing)" if not self.exists else ""
         return f"[Node] {self.marker}: pos={np.round(self.position, 2)}" + missing
+
+    def update_exists(self) -> bool:
+        """!Update the existence of the node based on its position."""
+        self.exists = np.any(self.position)
+
+    @classmethod
+    def validate_position(cls, position: np.ndarray) -> np.ndarray:
+        if position is None:
+            return np.zeros(3)
+
+        if len(position) != 3:
+            raise ValueError(f"Invalid position array: {position}")
+
+        if not isinstance(position, np.ndarray):
+            try:
+                return np.array(position)
+            except ValueError:
+                raise ValueError(f"Invalid position array: {position}")
+
+        return position
 
     @classmethod
     def validate_nodes(
@@ -650,6 +673,39 @@ class RigidBody:
         if node is None:
             return []
         return node.get_connected_joints(self.joints, only_existing)
+
+    def update_node_positions(
+        self, node_positions: Union[dict[str, Union[np.ndarray, Node]], list[Node]]
+    ):
+        """!Update the positions of nodes in the rigid_body. Propagates changes to segments and joints.
+
+        @param node_positions Dictionary of {node_marker: position array} or {node_marker: Node}, or list of nodes.
+
+        """
+        if isinstance(node_positions, dict):
+            for node in self.nodes:
+                if node.marker in node_positions:
+                    new_pos = node_positions[node.marker]
+                    if isinstance(new_pos, Node):
+                        new_pos = new_pos.position
+
+                    if not isinstance(new_pos, np.ndarray):
+                        LOGGER.warning("Invalid position array for node. Skipping.")
+                        continue
+                    node.position = new_pos
+
+        elif isinstance(node_positions, list):
+            for new_node in node_positions:
+                node = self.get_node(new_node.marker)
+                if node is not None:
+                    node.position = new_node.position
+
+        self._segments = self.generate_segments(
+            self.segments, compute_segment_lengths=True, segment_length_tolerances=None
+        )
+        self._joints = self.generate_joints(
+            self.segments, compute_angles=True, angle_tolerances=None
+        )
 
     def compute_segment_lengths(self):
         """!Compute the lengths of all segments."""

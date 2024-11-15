@@ -76,7 +76,7 @@ def parse_marker_positions_by_segment(
             continue
 
         segment_name = match.group("segment_name")
-        idx = int(match.group("idx"))
+        idx = match.group("idx")
         axis = match.group("axis")
         if segment_name not in marker_positions:
             marker_positions[segment_name] = {}
