@@ -55,8 +55,8 @@ class TestRigidBodyTemplate(unittest.TestCase):
             name="RigidBody1", markers=self.valid_markers, segments=self.valid_segments
         )
         expected_tolerances = {
-            "segment": {"Marker1-Marker2": 0, "Marker2-Marker3": 0},
-            "joint": {"Marker1": 0, "Marker2": 0, "Marker3": 0},
+            "segments": {"Marker1-Marker2": 0, "Marker2-Marker3": 0},
+            "joints": {"Marker1": 0, "Marker2": 0, "Marker3": 0},
         }
         self.assertEqual(template.tolerances, expected_tolerances)
 
@@ -102,10 +102,11 @@ class TestRigidBodyTemplate(unittest.TestCase):
             {"1": "Marker1", "2": "Marker2", "3": "Marker3"},
         )
         self.assertEqual(
-            template.tolerances["segment"], {"Marker1-Marker2": 0, "Marker2-Marker3": 0}
+            template.tolerances["segments"],
+            {"Marker1-Marker2": 0, "Marker2-Marker3": 0},
         )
         self.assertEqual(
-            template.tolerances["joint"], {"Marker1": 0, "Marker2": 0, "Marker3": 0}
+            template.tolerances["joints"], {"Marker1": 0, "Marker2": 0, "Marker3": 0}
         )
 
 

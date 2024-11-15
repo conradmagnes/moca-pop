@@ -58,7 +58,7 @@ class RigidBodyTemplate(BaseTemplate):
         if not self.tolerances:
             segment_tols = {segment: 0 for segment in self.segments}
             joint_tols = {marker: 0 for marker in self.markers}
-            self.tolerances = {"segment": segment_tols, "joint": joint_tols}
+            self.tolerances = {"segments": segment_tols, "joints": joint_tols}
 
         return self
 
@@ -72,8 +72,8 @@ class RigidBodyTemplate(BaseTemplate):
             name=self.name,
             nodes=self.markers,
             segments=self.segments,
-            segment_length_tolerances=self.tolerances["segment"],
-            joint_angle_tolerances=self.tolerances["joint"],
+            segment_length_tolerances=self.tolerances["segments"],
+            joint_angle_tolerances=self.tolerances["joints"],
         )
 
     @classmethod

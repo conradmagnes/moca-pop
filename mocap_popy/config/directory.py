@@ -1,21 +1,15 @@
 import os
+from pathlib import Path
 
 
 def find_root_dir():
     """Recursively search upwards for the project root directory."""
     marker = "mocap_popy"
-    current_dir = os.path.abspath(os.getcwd())
+    current_dir = Path(__file__).resolve().parent
 
-    while True:
-        if os.path.basename(current_dir) == marker and os.path.exists(
-            os.path.join(current_dir, marker)
-        ):
-            return current_dir
-
-        parent_dir = os.path.dirname(current_dir)
-        if parent_dir == current_dir:
-            break
-        current_dir = parent_dir
+    for parent in current_dir.parents:
+        if (parent / marker).exists() and parent.name == marker:
+            return parent
 
     raise RuntimeError(f"Root directory with marker '{marker}' not found.")
 

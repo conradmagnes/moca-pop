@@ -34,7 +34,7 @@ import mocap_popy.config.directory as directory
 import mocap_popy.config.logger as logger
 import mocap_popy.utils.json_utils as json_utils
 
-LOGGER = logging.getLogger(__file__)
+LOGGER = logging.getLogger("GenerateTemplateFileMapping")
 
 
 def generate_template_json_mapping():
@@ -125,7 +125,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     mode = "w" if args.log else "off"
-    logger.set_root_logger(name=os.path.basename(__file__), mode=mode)
+    logger.set_root_logger(name="generate_template_file_mapping", mode=mode)
 
     if args.verbose:
         logger.set_global_logging_level(logging.DEBUG)

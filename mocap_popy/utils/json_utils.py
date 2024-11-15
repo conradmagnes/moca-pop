@@ -30,3 +30,12 @@ def import_json_as_dict(filename):
     with open(filename, "r") as f:
         json_dict = json.load(f)
     return json_dict
+
+
+def import_json_as_str(filename):
+    """!Import JSON file as string"""
+    json_str = ""
+    with open(filename, "r") as f:
+        json_str = f.read()
+
+    return json_str

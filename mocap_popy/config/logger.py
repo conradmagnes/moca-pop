@@ -4,7 +4,7 @@ import subprocess
 import sys
 import datetime
 
-import mocap_popy.config.directory as sys_dir
+import mocap_popy.config.directory as directory
 
 
 TIME_STR_FMT = "%Y-%m-%d %H:%M:%S"
@@ -71,9 +71,8 @@ def generate_file_handler(name: str = None, mode: str = None):
     basename = name or DEFAULT_LOG_FILENAME
     filename = generate_log_filename(basename)
 
-    os.makedirs(sys_dir.LOG_DIR, exist_ok=True)
-    print(os.path.join(sys_dir.LOG_DIR, filename))
-    return logging.FileHandler(os.path.join(sys_dir.LOG_DIR, filename), mode=mode)
+    os.makedirs(directory.LOG_DIR, exist_ok=True)
+    return logging.FileHandler(os.path.join(directory.LOG_DIR, filename), mode=mode)
 
 
 def generate_stream_handler():
