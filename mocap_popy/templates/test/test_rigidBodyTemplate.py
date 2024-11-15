@@ -60,6 +60,33 @@ class TestRigidBodyTemplate(unittest.TestCase):
         }
         self.assertEqual(template.tolerances, expected_tolerances)
 
+    def test_add_symmetry_prefix(self):
+        """Test adding a symmetry prefix to the template."""
+        template = RigidBodyTemplate(
+            name="RigidBody1", markers=self.valid_markers, segments=self.valid_segments
+        )
+        template.add_symmetry_prefix("Left")
+        self.assertEqual(template.name, "Left_RigidBody1")
+        self.assertEqual(
+            template.markers, ["Left_Marker1", "Left_Marker2", "Left_Marker3"]
+        )
+        self.assertEqual(
+            template.segments,
+            ["Left_Marker1-Left_Marker2", "Left_Marker2-Left_Marker3"],
+        )
+        self.assertEqual(
+            template.param_index_marker_mapping,
+            {"1": "Left_Marker1", "2": "Left_Marker2", "3": "Left_Marker3"},
+        )
+        self.assertEqual(
+            template.tolerances["segments"],
+            {"Left_Marker1-Left_Marker2": 0, "Left_Marker2-Left_Marker3": 0},
+        )
+        self.assertEqual(
+            template.tolerances["joints"],
+            {"Left_Marker1": 0, "Left_Marker2": 0, "Left_Marker3": 0},
+        )
+
     def test_to_rigid_body(self):
         """Test conversion to a RigidBody instance."""
         template = RigidBodyTemplate(

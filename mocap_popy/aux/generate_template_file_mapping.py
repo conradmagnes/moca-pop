@@ -119,8 +119,8 @@ def configure_parser():
     return parser
 
 
-if __name__ == "__main__":
-
+def main():
+    global LOGGER
     parser = configure_parser()
     args = parser.parse_args()
 
@@ -136,4 +136,8 @@ if __name__ == "__main__":
         LOGGER.error(f"File type {args.file_type} is not supported.")
         exit()
 
-    res = generate_template_json_mapping()
+    return generate_template_json_mapping()
+
+
+if __name__ == "__main__":
+    main()

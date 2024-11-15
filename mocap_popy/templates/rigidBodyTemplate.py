@@ -62,6 +62,38 @@ class RigidBodyTemplate(BaseTemplate):
 
         return self
 
+    def add_symmetry_prefix(self, side: str):
+        """!Add a symmetry prefix to the name, markers and segments in the template."""
+        self.name = f"{side}_{self.name}"
+        self.markers = [f"{side}_{marker}" for marker in self.markers]
+
+        sided_segments = []
+        for segment in self.segments:
+            seg_parts = segment.split("-")
+            seg_parts = [f"{side}_{part}" for part in seg_parts]
+            segment = "-".join(seg_parts)
+            sided_segments.append(segment)
+        self.segments = sided_segments
+
+        for idx, marker in self.param_index_marker_mapping.items():
+            self.param_index_marker_mapping[idx] = f"{side}_{marker}"
+
+        seg_tolerance = {}
+        for seg_name, seg_tol in self.tolerances["segments"].items():
+            seg_name_parts = seg_name.split("-")
+            seg_name_parts = [f"{side}_{part}" for part in seg_name_parts]
+            sided_seg_name = "-".join(seg_name_parts)
+            seg_tolerance[sided_seg_name] = seg_tol
+
+        self.tolerances["segments"] = seg_tolerance
+
+        joint_tolerance = {}
+        for joint_name, joint_tol in self.tolerances["joints"].items():
+            sided_joint_name = f"{side}_{joint_name}"
+            joint_tolerance[sided_joint_name] = joint_tol
+
+        self.tolerances["joints"] = joint_tolerance
+
     def to_rigid_body(self) -> RigidBody:
         """!Create a RigidBody instance from the RigidBodyTemplate.
 
