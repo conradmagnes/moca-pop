@@ -21,6 +21,7 @@ SRC_DIR = os.path.join(ROOT_DIR, "mocap_popy")
 CONFIG_DIR = os.path.join(ROOT_DIR, "config")
 LOG_DIR = os.path.join(ROOT_DIR, "logs")
 DATASET_DIR = os.path.join(ROOT_DIR, "example_datasets")
+UTILS_DIR = os.path.join(SRC_DIR, "utils")
 
 # paths under SRC (excluding config)
 TEMPLATES_DIR = os.path.join(SRC_DIR, "templates")

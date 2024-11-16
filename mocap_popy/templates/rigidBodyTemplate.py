@@ -94,18 +94,39 @@ class RigidBodyTemplate(BaseTemplate):
 
         self.tolerances["joints"] = joint_tolerance
 
-    def to_rigid_body(self) -> RigidBody:
+    def convert_vsk_marker_positions(self, marker_positions: dict) -> dict:
+        """!Convert marker positions from VSK format to template format.
+
+        @param marker_positions dict of marker positions in format {marker_index: arr(x, y, z)}
+        @return dict of marker positions in format {marker_name: arr(x, y, z)}
+        """
+        formatted = {}
+        for idx, pos in marker_positions.items():
+            marker_name = self.param_index_marker_mapping.get(idx, None)
+            if marker_name is None:
+                LOGGER.warning(f"Marker index {idx} not found in template {self.name}.")
+                continue
+            formatted[marker_name] = pos
+
+        return formatted
+
+    def to_rigid_body(self, nodes: list = None) -> RigidBody:
         """!Create a RigidBody instance from the RigidBodyTemplate.
 
         @return RigidBody instance.
         """
+        compute_lengths = nodes is not None
+        compute_joints = nodes is not None
+        nodes = nodes or self.markers
 
         return RigidBody(
             name=self.name,
-            nodes=self.markers,
+            nodes=nodes,
             segments=self.segments,
             segment_length_tolerances=self.tolerances["segments"],
             joint_angle_tolerances=self.tolerances["joints"],
+            compute_segment_lengths=compute_lengths,
+            compute_joint_angles=compute_joints,
         )
 
     @classmethod

@@ -13,7 +13,7 @@
         "MM",
         "HM"
     ],
-    "marker_mapping": {
+    "param_index_marker_mapping": {
         "2": "HB",
         "3": "HL",
         "4": "ML",

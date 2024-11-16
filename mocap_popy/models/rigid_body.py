@@ -16,7 +16,9 @@ from itertools import combinations
 from typing import Union, Optional, Iterable
 import logging
 
+import matplotlib.pyplot as plt
 import numpy as np
+
 
 import mocap_popy.config.regex as regex
 import mocap_popy.utils.string_utils as str_utils
@@ -811,6 +813,52 @@ class RigidBody:
             agg_residuals.append(agg_res)
 
         return tuple(agg_residuals)
+
+    def draw_nodes_on(
+        self,
+        ax: plt.Axes,
+        plane: str,
+        include_labels: bool = False,
+        color: str = "b",
+        text_kwargs: dict = None,
+    ):
+        """!Draw nodes on a plot axis.
+
+        @param ax Matplotlib axis to draw on.
+        @param plane Plane to draw nodes on (i.e. 'xy', 'xyz').
+        @param include_labels Whether to include node labels.
+        @param color Color of the nodes.
+        @param text_kwargs Additional text parameters.
+        """
+        ax_map = {"x": 0, "y": 1, "z": 2}
+        default_label_kwargs = dict(fontsize=12, ha="right")
+        text_kwargs = {**default_label_kwargs, **(text_kwargs or {})}
+
+        for node in self.nodes:
+            pos = node.position
+            coord = [pos[ax_map[p]] for p in plane]
+            ax.scatter(*coord, c=color)
+            if include_labels:
+                ax.text(*coord, node.marker, **text_kwargs)
+
+        return
+
+    def draw_segments_on(self, ax: plt.Axes, plane: str, color: str = "b"):
+        """!Draw segments on a plot axis.
+
+        @param ax Matplotlib axis to draw on.
+        @param plane Plane to draw segments on (i.e. 'xy', 'xyz').
+        @param color Color of the segments.
+        """
+        ax_map = {"x": 0, "y": 1, "z": 2}
+        for segment in self.segments:
+            start = segment.nodes[0].position
+            end = segment.nodes[1].position
+            start_coord = [start[ax_map[p]] for p in plane]
+            end_coord = [end[ax_map[p]] for p in plane]
+            ax.plot(*zip(start_coord, end_coord), c=color)
+
+        return
 
     def __str__(self):
         return self.name
