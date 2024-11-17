@@ -186,6 +186,7 @@ class Segment:
         self._tolerance = tolerance
         self._residual_calib = 0
         self._residual_prior = 0
+        self._str = "-".join(self)
 
     @property
     def nodes(self) -> list[Node]:
@@ -232,27 +233,34 @@ class Segment:
             self._length = 0
 
     def compute_residuals(
-        self, rigid_body_calib: "RigidBody" = None, rigid_body_prior: "RigidBody" = None
+        self,
+        reference_calib: Union["RigidBody", "Segment"] = None,
+        reference_prior: Union["RigidBody", "Segment"] = None,
+        reference_length: float = None,
     ):
         """!Compute the residuals of the segment length relative to the calibrated
         rigid_body and the prior rigid_body.
 
-        Residuals are normalized to the segment length of the calibrated rigid_body, if provided.
-        Otherwise, normalizes to the segment length of the prior rigid_body.
+        Residuals are normalized to the segment length of the calibrated component, if provided.
+        Otherwise, normalizes to the segment length of the prior component.
 
-        @param rigid_body_calib RigidBody object with calibrated segment lengths.
-        @param rigid_body_prior RigidBody object with prior segment lengths.
+        @param reference_calib RigidBody or Segment object with calibrated segment lengths.
+        @param reference_prior RigidBody or Segment object with prior segment lengths.
+        @param reference_length Reference length for normalization.
         """
 
         self._residual_calib, ref_length = self.get_segment_residual_and_reference(
-            rigid_body_calib
+            reference_calib
         )
+        ref_length = ref_length or reference_length
         self._residual_prior, _ = self.get_segment_residual_and_reference(
-            rigid_body_prior, ref_length
+            reference_prior, ref_length
         )
 
     def get_segment_residual_and_reference(
-        self, rigid_body: "RigidBody", reference_length: float = None
+        self,
+        reference_component: Union["RigidBody", "Segment"],
+        reference_length: float = None,
     ) -> tuple[float, float]:
         """!Get the residual of the segment length relative to a rigid_body and the reference length.
 
@@ -266,10 +274,14 @@ class Segment:
         res = 0
         ref_length = reference_length if reference_length != 0 else None
 
-        if rigid_body is None:
+        if reference_component is None:
             return res, ref_length
 
-        seg = rigid_body.get_segment(self)
+        seg = (
+            reference_component.get_segment(self)
+            if isinstance(reference_component, RigidBody)
+            else reference_component
+        )
         if seg is not None and seg.exists and seg.length != 0:
             ref_length = reference_length or seg.length
             res = (self.length - seg.length) / ref_length
@@ -294,7 +306,7 @@ class Segment:
         return self.shares_nodes(other) and self.length == other.length
 
     def __str__(self) -> str:
-        return "-".join(self)
+        return self._str
 
     def __repr__(self) -> str:
         rounded_attrs = [round(attr, 2) for attr in [self.length, self.tolerance]]
@@ -366,6 +378,8 @@ class Joint:
         self._residual_calib = 0
         self._residual_prior = 0
 
+        self._str = "-".join(self)
+
     @property
     def segments(self):
         return self._segments
@@ -432,29 +446,35 @@ class Joint:
         self._angle = np.degrees(angle_rad)
 
     def compute_residuals(
-        self, rigid_body_calib: "RigidBody" = None, rigid_body_prior: "RigidBody" = None
+        self,
+        reference_calib: Union["RigidBody", "Joint"] = None,
+        reference_prior: Union["RigidBody", "Joint"] = None,
     ):
         """!Compute and store the residuals of the joint angle relative to its calibrated
         angle and the prior rigid_body, if provided.
 
         Residuals are left as absolute values.
 
-        @param rigid_body_calib RigidBody object with calibrated joint angles.
-        @param rigid_body_prior RigidBody object with prior joint angles.
+        @param reference_calib RigidBody or Joint object with calibrated joint angles.
+        @param reference_prior RigidBody or Joint object with prior joint angles.
         """
-        self._residual_calib = self.get_joint_residual(rigid_body_calib)
-        self._residual_prior = self.get_joint_residual(rigid_body_prior)
+        self._residual_calib = self.get_joint_residual(reference_calib)
+        self._residual_prior = self.get_joint_residual(reference_prior)
 
-    def get_joint_residual(self, rigid_body: "RigidBody"):
+    def get_joint_residual(self, reference: Union["RigidBody", "Joint"]) -> float:
         """!Compute the residual of the joint angle relative to a rigid_body.
 
         @param rigid_body RigidBody object to compare to.
         """
         res = 0
-        if rigid_body is None:
+        if reference is None:
             return res
 
-        joint = rigid_body.get_joint(self.segments)
+        joint = (
+            reference.get_joint(self.segments)
+            if isinstance(reference, RigidBody)
+            else reference
+        )
         if joint is not None and joint.exists and joint.angle != 0:
             res = self._angle - joint.angle
         return res
@@ -486,7 +506,7 @@ class Joint:
         return self.shares_segments(other) and self.angle == other.angle
 
     def __str__(self):
-        return "-".join(self)
+        return self._str
 
     def __repr__(self):
         rounded_attrs = [round(attr, 2) for attr in [self.angle, self.tolerance]]
@@ -637,16 +657,45 @@ class RigidBody:
         """!Get the markers of all nodes."""
         return [node.marker for node in self.nodes]
 
-    def get_node(self, marker: str) -> Optional[Node]:
-        """!Get a rigid_body node by marker."""
-        for node in self.nodes:
+    def get_node(self, marker: str, exclude: list = None) -> Optional[Node]:
+        """!Get a rigid_body node by marker.
+
+        @param marker Node marker.
+        @param exclude List of nodes to exclude from search.
+        """
+        exclude_list = exclude or []
+        search_nodes = [node for node in self.nodes if node not in exclude_list]
+        for node in search_nodes:
             if node.marker == marker:
                 return node
         return None
 
-    def get_segment(self, markers: Union[Segment, tuple, str]) -> Optional[Segment]:
-        """!Get a rigid_body segment by markers."""
-        for segment in self.segments:
+    def remove_node(self, node: Union[str, Node]):
+        """!Remove a node from the rigid_body (set to non-existent).
+
+        @param node Node marker or Node object.
+        """
+        if isinstance(node, str):
+            node = self.get_node(node)
+
+        if node is None:
+            return
+
+        node.position = np.zeros(3)
+        self.compute_segment_lengths()
+        self.compute_joint_angles()
+
+    def get_segment(
+        self, markers: Union[Segment, tuple, str], exclude: list = None
+    ) -> Optional[Segment]:
+        """!Get a rigid_body segment by markers.
+
+        @param markers Segment object, tuple of markers, or string of markers.
+        @param exclude List of segments to exclude from search.
+        """
+        exclude_list = exclude or []
+        search_segs = [seg for seg in self.segments if seg not in exclude_list]
+        for segment in search_segs:
             if segment.shares_nodes(markers):
                 return segment
         return None
@@ -660,9 +709,13 @@ class RigidBody:
             return []
         return node.get_connected_segments(self.segments, only_existing)
 
-    def get_joint(self, segments: Union[Joint, tuple, str]) -> Optional[Joint]:
+    def get_joint(
+        self, segments: Union[Joint, tuple, str], exclude: list = None
+    ) -> Optional[Joint]:
         """!Get a rigid_body joint by segments."""
-        for joint in self.joints:
+        exclude_list = exclude or []
+        search_joints = [joint for joint in self.joints if joint not in exclude_list]
+        for joint in search_joints:
             if joint.shares_segments(segments):
                 return joint
         return None
@@ -676,8 +729,39 @@ class RigidBody:
             return []
         return node.get_connected_joints(self.joints, only_existing)
 
+    def get_shared_segments(self, rigid_body: "RigidBody") -> dict[Segment, Segment]:
+        """!Get segments that are shared between two rigid_bodies.
+
+        @param rigid_body RigidBody object to compare to.
+        @return Dictionary of {self segment index: other segment} pairs.
+        """
+        common_segments = {}
+        for segment in self.segments:
+            other_seg = rigid_body.get_segment(
+                segment, exclude=list(common_segments.values())
+            )
+            common_segments[str(segment)] = other_seg
+        return common_segments
+
+    def get_shared_joints(self, rigid_body: "RigidBody") -> dict[Joint, Joint]:
+        """!Get joints that are shared between two rigid_bodies.
+
+        @param rigid_body RigidBody object to compare to.
+        @return Dictionary of {joint: joint} pairs.
+        """
+        common_joints = {}
+        for joint in self.joints:
+            other_joint = rigid_body.get_joint(
+                joint, exclude=list(common_joints.values())
+            )
+            common_joints[str(joint)] = other_joint
+        return common_joints
+
     def update_node_positions(
-        self, node_positions: Union[dict[str, Union[np.ndarray, Node]], list[Node]]
+        self,
+        node_positions: Union[dict[str, Union[np.ndarray, Node]], list[Node]],
+        recompute_lengths: bool = False,
+        recompute_angles: bool = False,
     ):
         """!Update the positions of nodes in the rigid_body. Propagates changes to segments and joints.
 
@@ -702,12 +786,18 @@ class RigidBody:
                 if node is not None:
                     node.position = new_node.position
 
-        self._segments = self.generate_segments(
-            self.segments, compute_segment_lengths=True, segment_length_tolerances=None
-        )
-        self._joints = self.generate_joints(
-            self.segments, compute_angles=True, angle_tolerances=None
-        )
+        if recompute_lengths:
+            self.compute_segment_lengths()
+        if recompute_angles:
+            self.compute_joint_angles()
+        # self._segments = self.generate_segments(
+        #     self.segments,
+        #     compute_segment_lengths=recompute_lengths,
+        #     segment_length_tolerances=None,
+        # )
+        # self._joints = self.generate_joints(
+        #     self.segments, compute_angles=recompute_angles, angle_tolerances=None
+        # )
 
     def compute_segment_lengths(self):
         """!Compute the lengths of all segments."""
@@ -716,17 +806,30 @@ class RigidBody:
 
     def compute_segment_residuals(
         self,
-        rigid_body_calib: "RigidBody" = None,
-        rigid_body_prior: "RigidBody" = None,
+        reference_calib: Union["RigidBody", dict[Segment, Segment]] = None,
+        reference_prior: Union["RigidBody", dict[Segment, Segment]] = None,
+        reference_lengths: dict[Segment, float] = None,
     ):
         """!Compute the residuals of all segments relative to the calibrated
         rigid_body and the prior rigid_body.
 
-        @param rigid_body_calib RigidBody object with calibrated segment lengths.
-        @param rigid_body_prior RigidBody object with prior segment lengths.
+        @param reference_calib RigidBody object with calibrated segment lengths or segment mapping.
+        @param reference_prior RigidBody object with prior segment lengths or segment mapping.
+        @param reference_lengths Dictionary of reference segment lengths.
         """
         for seg in self.segments:
-            seg.compute_residuals(rigid_body_calib, rigid_body_prior)
+            calib = (
+                reference_calib.get(str(seg), None)
+                if isinstance(reference_calib, dict)
+                else reference_calib
+            )
+            prior = (
+                reference_prior.get(str(seg), None)
+                if isinstance(reference_prior, dict)
+                else reference_prior
+            )
+            ref = reference_lengths.get(str(seg), None) if reference_lengths else None
+            seg.compute_residuals(calib, prior, ref)
 
     def compute_joint_angles(self):
         """!Compute the angles of all joints."""
@@ -735,72 +838,92 @@ class RigidBody:
 
     def compute_joint_residuals(
         self,
-        rigid_body_calib: "RigidBody" = None,
-        rigid_body_prior: "RigidBody" = None,
+        reference_calib: Union["RigidBody", dict[Joint, Joint]] = None,
+        reference_prior: Union["RigidBody", dict[Joint, Joint]] = None,
     ):
         """!Compute the residuals of all joints relative to the calibrated
         rigid_body and the prior rigid_body.
 
-        @param rigid_body_calib RigidBody object with calibrated joint angles.
-        @param rigid_body_prior RigidBody object with prior joint angles.
+        @param reference_calib RigidBody object with calibrated joint angles or joint mapping.
+        @param reference_prior RigidBody object with prior joint angles or joint mapping.
         """
         for joint in self.joints:
-            joint.compute_residuals(rigid_body_calib, rigid_body_prior)
+            calib = (
+                reference_calib.get(str(joint), None)
+                if isinstance(reference_calib, dict)
+                else reference_calib
+            )
+            prior = (
+                reference_prior.get(str(joint), None)
+                if isinstance(reference_prior, dict)
+                else reference_prior
+            )
+            joint.compute_residuals(calib, prior)
 
     def get_aggregate_segment_residuals(
         self,
         node: Union[str, Node],
+        res_types: list[str] = None,
         average: bool = False,
         ignore_tolerance: bool = False,
-    ) -> tuple[float, float]:
+    ) -> Union[float, tuple[float, float]]:
         """!Get the aggregate residuals of all segments connected to a node.
 
         @param node Node marker or Node object.
         @param average Whether to average the residuals. Otherwise, sum them.
         @return Tuple of the combined residuals for calibration and prior.
         """
+        res_types = res_types or ["residual_calib", "residual_prior"]
         node = node if isinstance(node, Node) else self.get_node(node)
         if node is None:
-            return 0, 0
+            return (0, 0) if len(res_types) > 1 else 0
         connected_segments = node.get_connected_segments(
             self.segments, only_existing=True
         )
 
-        return self.aggregate_residuals(connected_segments, average, ignore_tolerance)
+        return self.aggregate_residuals(
+            connected_segments, res_types, average, ignore_tolerance
+        )
 
     def get_aggregate_joint_residuals(
         self,
         node: Union[str, Node],
+        res_types: list[str] = None,
         average: bool = False,
         ignore_tolerance: bool = False,
-    ) -> tuple[float, float]:
+    ) -> Union[float, tuple[float, float]]:
         """!Get the aggregate residuals of all joints connected to a node.
 
         @param node Node marker or Node object.
         @param average Whether to average the residuals. Otherwise, sum them.
         @return Tuple of the combined residuals for calibration and prior.
         """
+        res_types = res_types or ["residual_calib", "residual_prior"]
         node = node if isinstance(node, Node) else self.get_node(node)
         if node is None:
-            return 0, 0
+            return (0, 0) if len(res_types) > 1 else 0
         connected_joints = node.get_connected_joints(self.joints, only_existing=True)
 
-        return self.aggregate_residuals(connected_joints, average, ignore_tolerance)
+        return self.aggregate_residuals(
+            connected_joints, res_types, average, ignore_tolerance
+        )
 
     @staticmethod
     def aggregate_residuals(
         components: Union[list[Joint], list[Segment]],
+        res_types: list[str] = None,
         average: bool = False,
         ignore_tolerance: bool = False,
-    ):
+    ) -> Union[float, tuple[float, float]]:
         """!Aggregate residuals from a list of segments or joints.
 
         @param components List of Segment or Joint objects.
         @param average Whether to average the residuals. Otherwise, sum them.
         @param ignore_tolerance Whether to ignore the tolerance when computing residuals.
         """
+        res_types = res_types or ["residual_calib", "residual_prior"]
         agg_residuals = []
-        for res_type in ["residual_calib", "residual_prior"]:
+        for res_type in res_types:
             residuals = []
             for comp in components:
                 tol = 0 if ignore_tolerance else comp.tolerance
@@ -812,7 +935,7 @@ class RigidBody:
             )
             agg_residuals.append(agg_res)
 
-        return tuple(agg_residuals)
+        return tuple(agg_residuals) if len(agg_residuals) > 1 else agg_residuals[0]
 
     def draw_nodes_on(
         self,

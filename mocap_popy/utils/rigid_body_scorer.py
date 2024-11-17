@@ -7,11 +7,101 @@
     @author C. McCarthy
 """
 
+import copy
 from typing import Optional, Literal, Union, Any
+
 
 import numpy as np
 
 from mocap_popy.models.rigid_body import RigidBody
+from mocap_popy.models.marker_trajectory import MarkerTrajectory
+
+
+def generate_residual_histories(
+    initial_bodies: dict[str, RigidBody],
+    marker_trajectories: dict[str, MarkerTrajectory],
+    residual_type: Literal["calib", "prior"],
+    segments_only: bool = False,
+    start_frame: bool = 0,
+    end_frame: bool = -1,
+    agg_kwargs: dict = None,
+):
+    """!Generates residual histories for rigid bodies.
+
+    @param bodies Dictionary of rigid bodies.
+    @param marker_trajectories Dictionary of marker trajectories.
+    @param residual_type Type of residual to compute. Either "calib" or "prior".
+    @param segments_only Whether to compute segment residuals only. Saves computation time.
+    @param Start frame for residual computation. This corresponds to an index of the marker trajectories.
+    @param End frame for residual computation. This corresponds to an index of the marker trajectories.
+    @param agg_kwargs Keyword arguments for aggregate_residuals. i.e. average, ignore_tolerance.
+                Can be specified for "segment" and "joint" components, or as a default for all components.
+    """
+    components = ["segment"]
+    if not segments_only:
+        components.append("joint")
+
+    default_agg = dict(average=True, ignore_tolerance=False)
+    agg_k = {comp: copy.deepcopy(default_agg) for comp in components}
+    if agg_kwargs is not None:
+        for comp in components:
+            for k, v in default_agg.items():
+                if comp in agg_kwargs:
+                    agg_k[comp][k] = agg_kwargs[comp].get(k, v)
+                else:
+                    agg_k[comp][k] = agg_kwargs.get(k, v)
+
+    residual_histories = {}
+    for rb_name, rb in initial_bodies.items():
+        prior_rigid_body = None
+
+        residual_histories[rb_name] = {comp: None for comp in components}
+        rb_trajs: dict[str, MarkerTrajectory] = {
+            m: traj for m, traj in marker_trajectories.items() if m in rb.get_markers()
+        }
+
+        end_frame = len(list(rb_trajs.values())[0].x) if end_frame == -1 else end_frame
+
+        segment_residuals = []
+        joint_residuals = []
+
+        for frame in range(start_frame, end_frame):
+            nodes = [traj.generate_node(m, frame) for m, traj in rb_trajs.items()]
+            if residual_type == "calib" or prior_rigid_body is None:
+                current_rigid_body = copy.deepcopy(rb)
+            else:
+                current_rigid_body = copy.deepcopy(prior_rigid_body)
+
+            current_rigid_body.update_node_positions(
+                nodes, recompute_lengths=True, recompute_angles=(not segments_only)
+            )
+            current_rigid_body.compute_segment_residuals(rb)
+            if not segments_only:
+                current_rigid_body.compute_joint_residuals(rb)
+
+            segments_res = []
+            joint_res = []
+            for node in current_rigid_body.nodes:
+                seg_res = current_rigid_body.get_aggregate_segment_residuals(
+                    node, res_types=[f"residual_{residual_type}"], **agg_k["segment"]
+                )
+                segments_res.append(seg_res)
+                if segments_only:
+                    continue
+                j_res = current_rigid_body.get_aggregate_joint_residuals(
+                    node, res_types=[f"residual_{residual_type}"], **agg_k["joint"]
+                )
+                joint_res.append(j_res)
+
+            segment_residuals.append(segments_res)
+            if not segments_only:
+                joint_residuals.append(joint_res)
+
+        residual_histories[rb_name]["segment"] = segment_residuals
+        if not segments_only:
+            residual_histories[rb_name]["joint"] = joint_residuals
+
+    return residual_histories
 
 
 def score_residual(residual: float, tolerance: float = 0, weight: float = 1):
@@ -28,11 +118,11 @@ def score_residual(residual: float, tolerance: float = 0, weight: float = 1):
 
 
 def score_rigid_body_components(
-    component: Literal["segment", "joint", "node"],
     rigid_body: RigidBody,
-    rigid_body_prior: RigidBody,
+    component: Literal["segment", "joint", "node"],
+    residual_type: Literal["calib", "prior"],
     score_tolerance: Union[float, dict] = 0,
-    score_weight: Union[float, dict] = 0,
+    score_weight: Union[float, dict] = 1,
     aggregate_using_average: Union[bool, dict] = True,
     ignore_residual_tolerances: Union[bool, dict] = False,
     marker_set: list[str] = None,
@@ -55,31 +145,31 @@ def score_rigid_body_components(
     @param scores Dictionary of scores for each marker.
     """
 
-    def get_dict_value(key: list, value: Union[dict, Any]):
+    def get_dict_value(key: list, value: Union[dict, Any], default: Any = 0):
         if isinstance(value, dict):
-            return value.get(key, 0)
+            return value.get(key, default)
         return value
 
     if component not in ["segment", "joint", "node"]:
         raise ValueError(f"Invalid component: {component}")
 
     if marker_set is None:
-        marker_set = [n.marker for n in rigid_body.nodes]
-        marker_set.extend([n.marker for n in rigid_body_prior.nodes])
-        marker_set = set(marker_set)
+        marker_set = set([n.marker for n in rigid_body.nodes])
 
     if component == "node":
         sub_scores = {}
         for comp in ["segment", "joint"]:
             res = score_rigid_body_components(
-                comp,
                 rigid_body,
-                rigid_body_prior,
+                comp,
+                residual_type,
                 score_tolerance=get_dict_value(comp, score_tolerance),
                 score_weight=get_dict_value(comp, score_weight),
-                aggregate_using_average=get_dict_value(comp, aggregate_using_average),
-                ignore_residual_tolerance=get_dict_value(
-                    comp, ignore_residual_tolerances
+                aggregate_using_average=get_dict_value(
+                    comp, aggregate_using_average, True
+                ),
+                ignore_residual_tolerances=get_dict_value(
+                    comp, ignore_residual_tolerances, False
                 ),
                 marker_set=marker_set,
             )
@@ -100,18 +190,18 @@ def score_rigid_body_components(
         if component == "segment":
             res = rigid_body.get_aggregate_segment_residuals(
                 m,
-                rigid_body_prior,
+                [f"residual_{residual_type}"],
                 aggregate_using_average,
                 ignore_residual_tolerances,
             )
         else:
             res = rigid_body.get_aggregate_joint_residuals(
                 m,
-                rigid_body_prior,
+                [f"residual_{residual_type}"],
                 aggregate_using_average,
                 ignore_residual_tolerances,
             )
-            scores[m] = score_residual(res, score_tolerance, score_weight)
+        scores[m] = score_residual(res, score_tolerance, score_weight)
 
     return scores
 
