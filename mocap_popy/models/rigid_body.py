@@ -790,14 +790,24 @@ class RigidBody:
             self.compute_segment_lengths()
         if recompute_angles:
             self.compute_joint_angles()
-        # self._segments = self.generate_segments(
-        #     self.segments,
-        #     compute_segment_lengths=recompute_lengths,
-        #     segment_length_tolerances=None,
-        # )
-        # self._joints = self.generate_joints(
-        #     self.segments, compute_angles=recompute_angles, angle_tolerances=None
-        # )
+
+    def get_segment_tolerances(self) -> dict[str, float]:
+        """!Get the tolerances of all segments."""
+        return {str(seg): seg.tolerance for seg in self.segments}
+
+    def get_joint_tolerances(self) -> dict[str, float]:
+        """!Get the tolerances of all joints."""
+        return {str(joint): joint.tolerance for joint in self.joints}
+
+    def update_segment_tolerances(self, tolerances: dict[str, float]):
+        """!Update the tolerances of all segments."""
+        for seg in self.segments:
+            seg.tolerance = tolerances.get(str(seg), seg.tolerance)
+
+    def update_joint_tolerances(self, tolerances: dict[str, float]):
+        """!Update the tolerances of all joints."""
+        for joint in self.joints:
+            joint.tolerance = tolerances.get(str(joint), joint.tolerance)
 
     def compute_segment_lengths(self):
         """!Compute the lengths of all segments."""
@@ -806,9 +816,9 @@ class RigidBody:
 
     def compute_segment_residuals(
         self,
-        reference_calib: Union["RigidBody", dict[Segment, Segment]] = None,
-        reference_prior: Union["RigidBody", dict[Segment, Segment]] = None,
-        reference_lengths: dict[Segment, float] = None,
+        reference_calib: Union["RigidBody", dict[str, Segment]] = None,
+        reference_prior: Union["RigidBody", dict[str, Segment]] = None,
+        reference_lengths: dict[str, float] = None,
     ):
         """!Compute the residuals of all segments relative to the calibrated
         rigid_body and the prior rigid_body.
@@ -838,8 +848,8 @@ class RigidBody:
 
     def compute_joint_residuals(
         self,
-        reference_calib: Union["RigidBody", dict[Joint, Joint]] = None,
-        reference_prior: Union["RigidBody", dict[Joint, Joint]] = None,
+        reference_calib: Union["RigidBody", dict[str, Joint]] = None,
+        reference_prior: Union["RigidBody", dict[str, Joint]] = None,
     ):
         """!Compute the residuals of all joints relative to the calibrated
         rigid_body and the prior rigid_body.

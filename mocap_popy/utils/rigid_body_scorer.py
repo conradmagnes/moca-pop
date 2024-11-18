@@ -17,6 +17,37 @@ from mocap_popy.models.rigid_body import RigidBody
 from mocap_popy.models.marker_trajectory import MarkerTrajectory
 
 
+def validate_segment_and_joint_kwargs(
+    kwargs: dict, defaults: dict, components: list[str] = None
+):
+    """!Validates keyword arguments for segment and joint components.
+
+    @param kwargs Keyword arguments.
+    @param defaults Default keyword arguments.
+    @param components List of components to validate. Default is ["segment", "joint"].
+
+    @return Validated keyword arguments.
+    """
+    comps = ["segment", "joint"] if components is None else components
+    valid_kwargs = {}
+    for comp in comps:
+        valid_kwargs[comp] = (
+            copy.deepcopy(defaults)
+            if comp not in defaults
+            else copy.deepcopy(defaults[comp])
+        )
+
+    if kwargs is not None:
+        for comp in comps:
+            for k, v in valid_kwargs[comp].items():
+                if comp in kwargs:
+                    valid_kwargs[comp][k] = kwargs[comp].get(k, v)
+                else:
+                    valid_kwargs[comp][k] = kwargs.get(k, v)
+
+    return valid_kwargs
+
+
 def generate_residual_histories(
     initial_bodies: dict[str, RigidBody],
     marker_trajectories: dict[str, MarkerTrajectory],
@@ -42,14 +73,7 @@ def generate_residual_histories(
         components.append("joint")
 
     default_agg = dict(average=True, ignore_tolerance=False)
-    agg_k = {comp: copy.deepcopy(default_agg) for comp in components}
-    if agg_kwargs is not None:
-        for comp in components:
-            for k, v in default_agg.items():
-                if comp in agg_kwargs:
-                    agg_k[comp][k] = agg_kwargs[comp].get(k, v)
-                else:
-                    agg_k[comp][k] = agg_kwargs.get(k, v)
+    agg_k = validate_segment_and_joint_kwargs(agg_kwargs, default_agg, components)
 
     residual_histories = {}
     for rb_name, rb in initial_bodies.items():

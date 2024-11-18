@@ -1,0 +1,22 @@
+{
+    "calib": {
+        "segment": {
+            "weight": 1.0,
+            "tolerance": 0
+        },
+        "joint": {
+            "weight": 0.002778,
+            "tolerance": 0
+        }
+    },
+    "prior": {
+        "segment": {
+            "weight": 1.0,
+            "tolerance": 0
+        },
+        "joint": {
+            "weight": 0.002778,
+            "tolerance": 0
+        }
+    }
+}
