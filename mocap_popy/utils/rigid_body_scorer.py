@@ -84,12 +84,12 @@ def generate_residual_histories(
             m: traj for m, traj in marker_trajectories.items() if m in rb.get_markers()
         }
 
-        end_frame = len(list(rb_trajs.values())[0].x) if end_frame == -1 else end_frame
+        end = len(list(rb_trajs.values())[0].x) if end_frame == -1 else end_frame + 1
 
         segment_residuals = []
         joint_residuals = []
 
-        for frame in range(start_frame, end_frame):
+        for frame in range(start_frame, end):
             nodes = [traj.generate_node(m, frame) for m, traj in rb_trajs.items()]
             if residual_type == "calib" or prior_rigid_body is None:
                 current_rigid_body = copy.deepcopy(rb)

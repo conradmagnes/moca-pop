@@ -22,6 +22,9 @@ python -m pip install .[test]
 python -m pip install .\[test\]
 ```
 
+This library also requires the Vicon Nexus API, if running scripts in 'online' mode. The Vicon Nexus API is automatically downloaded with newer versions of the Vicon Nexus software (located in Program Files (either Program or Program Files (x86)) -> Vicon -> NexusX.XX -> SDK -> (OS) -> Python). If using Windows, you can install the package by running the included `.bat` file. 
+Otherwise, navigate to the folder containing the package (i.e. viconnexusapi) and run `pip install .`.
+
 ## Repo Structure
 <pre>
 .
