@@ -14,7 +14,9 @@ LOGGER = logging.getLogger(__name__)
 
 
 import mocap_popy.config.directory as directory
-from mocap_popy.aux.generate_template_file_mapping import generate_template_json_mapping
+from mocap_popy.aux_scripts.generate_template_file_mapping import (
+    generate_template_json_mapping,
+)
 import mocap_popy.utils.json_utils as json_utils
 
 import mocap_popy.templates.rigidBodyTemplate as rbt

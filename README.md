@@ -28,14 +28,19 @@ Otherwise, navigate to the folder containing the package (i.e. viconnexusapi) an
 ## Repo Structure
 <pre>
 .
-|-- example_datasets - Example datasets
+|-- example_datasets
+|   `-- shoe_stepping 
 |-- logs - Logging
 `-- mocap_popy
-    |-- aux - Auxilary
-    |-- config - Configuration
+    |-- aux_scripts
+    |-- config
+    |-- models
     |-- scripts
-    |   |-- unlabel_using_custom_skeleton.py
-    `-- tests - Testing
+    |   `-- unassign_rb_makers
+    |-- templates
+    |   `-- json
+    `-- utils
+    
 </pre>
 
 ## Usage

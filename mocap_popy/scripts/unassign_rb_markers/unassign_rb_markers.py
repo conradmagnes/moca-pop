@@ -1,6 +1,6 @@
 """!
 
-    Unlabel Rigid Body Markers
+    Unassign Rigid Body Markers
     ===========================
 
     This script removes markers from rigid bodies based on residual segment and (optionally) joint scores.
@@ -35,7 +35,7 @@ from mocap_popy.utils import (
 from mocap_popy.utils import plot_utils, json_utils
 
 
-LOGGER = logging.getLogger("UnlabelRigidBodyMarkers")
+LOGGER = logging.getLogger("UnassignRigidBodyMarkers")
 
 
 def get_marker_removals_from_calibration_bodies(
@@ -597,7 +597,7 @@ def open_console_logging():
 
 
 def load_scoring_config(name) -> dict:
-    scoring_dir = os.path.join(directory.SCRIPTS_DIR, "unlabel_rb_markers", "scoring")
+    scoring_dir = os.path.join(directory.SCRIPTS_DIR, "unassign_rb_markers", "scoring")
     scoring_name = name if name else "default"
     scoring_fp = os.path.join(scoring_dir, f"{scoring_name}.json")
     if not os.path.isfile(scoring_fp):
@@ -715,7 +715,7 @@ def remove_markers_from_online_trial(
 def configure_parser():
     """!Configure the argument parser."""
     parser = argparse.ArgumentParser(
-        description="Unlabel rigid body markers based on residual scores."
+        description="Unassign rigid body markers based on residual scores."
     )
 
     parser.add_argument(
@@ -743,7 +743,7 @@ def configure_parser():
         "--scoring_name",
         type=str,
         default="default",
-        help="Name of the scoring configuration to use. (saved to mocap_popy/scripts/unlabel_rb_markers/scoring)",
+        help="Name of the scoring configuration to use. (saved to mocap_popy/scripts/unassign_rb_markers/scoring)",
     )
 
     parser.add_argument(
@@ -845,12 +845,12 @@ def main():
         console_process = open_console_logging()
 
     mode = "w" if args.log else "off"
-    logger.set_root_logger(name="unlabel_rb_markers", mode=mode)
+    logger.set_root_logger(name="unassign_rb_markers", mode=mode)
 
     if args.verbose:
         LOGGER.setLevel(logging.DEBUG)
 
-    LOGGER.info("Running `unlabel_rb_markers.py` ...")
+    LOGGER.info("Running `unassign_rb_markers.py` ...")
     LOGGER.debug(args)
 
     ## Validate Args
@@ -987,7 +987,7 @@ def test_main_with_args():
     """!Test main function with args. Useful for debugging."""
 
     sys.argv = [
-        "unlabel_rb_markers.py",
+        "unassign_rb_markers.py",
         "--offline",
         "--project_dir",
         "shoe_stepping",
