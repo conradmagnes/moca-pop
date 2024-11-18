@@ -1,0 +1,22 @@
+{
+    "calib": {
+        "segment": {
+            "score_weight": 1.0,
+            "score_tolerance": 0
+        },
+        "joint": {
+            "score_weight": 0.002778,
+            "score_tolerance": 0
+        }
+    },
+    "prior": {
+        "segment": {
+            "score_weight": 1.0,
+            "score_tolerance": 0
+        },
+        "joint": {
+            "score_weight": 0.002778,
+            "score_tolerance": 0
+        }
+    }
+}
