@@ -1,7 +1,7 @@
 import unittest
 
 from mocap_popy.models.rigid_body import RigidBody, Node, Segment
-from mocap_popy.templates.rigidBodyTemplate import RigidBodyTemplate
+from mocap_popy.model_templates.rigidBodyTemplate import RigidBodyTemplate
 from mocap_popy.config import regex
 
 

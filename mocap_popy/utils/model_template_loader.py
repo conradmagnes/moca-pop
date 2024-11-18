@@ -19,7 +19,7 @@ from mocap_popy.aux_scripts.generate_template_file_mapping import (
 )
 import mocap_popy.utils.json_utils as json_utils
 
-import mocap_popy.templates.rigidBodyTemplate as rbt
+import mocap_popy.model_templates.rigidBodyTemplate as rbt
 
 
 def load_mapper():
@@ -63,7 +63,10 @@ def load_template_from_json(model_name: str, template_type: str, template_name: 
         )
         return None
 
-    template_fp = mapper[model_name][template_type][template_name]
+    rel_template_fp = mapper[model_name][template_type][template_name]
+    template_fp = os.path.join(
+        directory.JSON_TEMPLATES_DIR, template_type, rel_template_fp
+    )
     template_data = json_utils.import_json_as_str(template_fp)
     try:
         return rbt.RigidBodyTemplate.model_validate_json(template_data)

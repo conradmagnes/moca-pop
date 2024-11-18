@@ -1,0 +1,7 @@
+{
+    "NUSHU_shoe_10_wholefoot": {
+        "rigid_body": {
+            "Foot": "foot.json"
+        }
+    }
+}

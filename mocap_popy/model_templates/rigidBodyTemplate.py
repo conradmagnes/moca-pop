@@ -12,7 +12,7 @@ import logging
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 import mocap_popy.config.regex as regex
-from mocap_popy.templates.baseTemplate import BaseTemplate
+from mocap_popy.model_templates.baseTemplate import BaseTemplate
 from mocap_popy.models.rigid_body import RigidBody
 
 LOGGER = logging.getLogger(__name__)

@@ -25,7 +25,7 @@ UTILS_DIR = os.path.join(SRC_DIR, "utils")
 SCRIPTS_DIR = os.path.join(SRC_DIR, "scripts")
 
 # paths under SRC (excluding config)
-TEMPLATES_DIR = os.path.join(SRC_DIR, "templates")
+TEMPLATES_DIR = os.path.join(SRC_DIR, "model_templates")
 JSON_TEMPLATES_DIR = os.path.join(TEMPLATES_DIR, "json")
 RIGID_BODY_JSON_DIR = os.path.join(JSON_TEMPLATES_DIR, "rigid_body")
 
