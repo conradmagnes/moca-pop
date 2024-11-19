@@ -15,14 +15,14 @@
     ------
     From scripts directory:
     1. Offline Mode:
-        python -m unassign_rb_markers.py -off -p <project_dir> -tn <trial_name> -sn <subject_name> -start <start_frame> -end <end_frame>
+        python unassign_rb_markers.py -off -p <project_dir> -tn <trial_name> -sn <subject_name> -start <start_frame> -end <end_frame>
 
     2. Online Mode:
-        python -m unassign_rb_markers.py -on -sn <subject_name> --start_frame <start_frame> --end end_frame <end_frame>
+        python unassign_rb_markers.py -on -sn <subject_name> --start_frame <start_frame> --end end_frame <end_frame>
 
     Options:
     --------
-    Run 'python -m unassign_rb_markers.py -h' for options.
+    Run 'python unassign_rb_markers.py -h' for options.
 
     Returns:
     --------
@@ -36,12 +36,10 @@ import argparse
 import copy
 import logging
 import os
-import subprocess
 import sys
 import time
 from typing import Literal, Union
 import tqdm
-
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -56,7 +54,7 @@ from mocap_popy.utils import (
     c3d_parser,
     model_template_loader,
 )
-from mocap_popy.utils import plot_utils, json_utils
+from mocap_popy.utils import plot_utils, json_utils, dist_utils
 
 
 LOGGER = logging.getLogger("UnassignRigidBodyMarkers")
@@ -476,7 +474,7 @@ def validate_offline_args(args) -> tuple:
         LOGGER.error(
             "Project directory, trial name, and subject name must be provided in offline mode."
         )
-        exit()
+        exit(-1)
 
     if "example_datasets" in args.project_dir:
         project_dir = os.path.join(
@@ -490,17 +488,17 @@ def validate_offline_args(args) -> tuple:
 
     if not os.path.isdir(project_dir):
         LOGGER.error(f"Project directory does not exist ({project_dir}). Exiting.")
-        exit()
+        exit(-1)
 
     trial_fp = os.path.join(project_dir, f"{args.trial_name}.c3d")
     if not os.path.isfile(trial_fp):
         LOGGER.error(f"Trial file does not exist ({trial_fp}). Exiting.")
-        exit()
+        exit(-1)
 
     vsk_fp = os.path.join(project_dir, f"{args.subject_name}.vsk")
     if not os.path.isfile(vsk_fp):
         LOGGER.error(f"VSK file was not found: {vsk_fp}. Exiting.")
-        exit()
+        exit(-1)
 
     return project_dir, trial_fp, vsk_fp, args.subject_name
 
@@ -516,7 +514,7 @@ def validate_online_args(args, vicon):
     project_dir, trial_name = vicon.GetTrialName()
     if not trial_name:
         LOGGER.error("Load a trial in Nexus before running 'online' mode.")
-        exit()
+        exit(-1)
 
     trial_fp = os.path.join(project_dir, f"{trial_name}.c3d")
 
@@ -525,35 +523,35 @@ def validate_online_args(args, vicon):
     if not args.subject_name:
         LOGGER.info("Searching for available subject templates...")
         candidate_subject_names = []
+        mapper = model_template_loader.load_mapper()
         for name, template, status in zip(
             subject_names, subject_templates, subject_statuses
         ):
-            temp = model_template_loader.load_template_from_json(template)
-            if temp is not None:
+            if template in mapper:
                 candidate_subject_names.append((name, status))
         if len(candidate_subject_names) == 0:
             LOGGER.error("No matching templates found for trial subjects. Exiting.")
-            exit()
+            exit(-1)
         elif len(candidate_subject_names) > 1:
             candidate_subject_names = [
                 sn for sn, status in candidate_subject_names if status
             ]
             if len(candidate_subject_names) > 1 or len(candidate_subject_names) == 0:
                 LOGGER.error("Could not infer subject name (multiple or none active).")
-                exit()
+                exit(-1)
 
-        subject_name = candidate_subject_names[0]
+        subject_name, _ = candidate_subject_names[0]
 
     elif args.subject_name not in subject_names:
         LOGGER.error(f"Subject name '{args.subject_name}' not found in Nexus. Exiting.")
-        exit()
+        exit(-1)
     else:
         subject_name = args.subject_name
 
     vsk_fp = os.path.join(project_dir, f"{subject_name}.vsk")
     if not os.path.isfile(vsk_fp):
         LOGGER.error(f"VSK file was not found: {vsk_fp}. Exiting.")
-        exit()
+        exit(-1)
 
     return project_dir, trial_fp, vsk_fp, subject_name
 
@@ -572,7 +570,7 @@ def validate_start_end_frames(args, frames: list[int]) -> tuple[int, int]:
         LOGGER.error(
             f"Start frame {args.start_frame} is out of range ({first_frame}-{last_frame}). Exiting."
         )
-        exit()
+        exit(-1)
 
     start_frame = first_frame if args.start_frame < 0 else args.start_frame
 
@@ -580,7 +578,7 @@ def validate_start_end_frames(args, frames: list[int]) -> tuple[int, int]:
         end_frame = last_frame
     elif args.end_frame < start_frame:
         LOGGER.error(f"End frame {args.end_frame} is before start frame. Exiting.")
-        exit()
+        exit(-1)
     elif args.end_frame >= last_frame:
         LOGGER.warning(
             f"End frame {args.end_frame} is out of range ({first_frame}-{last_frame}). Setting to end."
@@ -590,55 +588,6 @@ def validate_start_end_frames(args, frames: list[int]) -> tuple[int, int]:
         end_frame = args.end_frame
 
     return start_frame, end_frame
-
-
-def open_console_logging():
-    """!Open a new console for logging output.
-
-    This needs further testing. Disabling for now.
-    """
-    global LOGGER
-    prcocess = None
-    subprocess_cmd = ""
-    if sys.platform == "win32":
-        subprocess_cmd = "start cmd.exe /k"
-    elif sys.platform == "darwin":
-        subprocess_cmd = "open -a Terminal"
-    else:
-        LOGGER.info("Console logging not supported on this platform.")
-        return prcocess
-
-    try:
-        process = subprocess.Popen(
-            subprocess_cmd,
-            shell=True,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-
-        max_timeout = 10
-        start_time = time.time()
-        while process.poll() is None and (time.time() - start_time) < max_timeout:
-            print("Waiting for console to start...")
-            time.sleep(0.5)
-
-        if process.poll() is None:
-            handler = logging.StreamHandler(process.stdin)
-            logging.root.addHandler(handler)
-            LOGGER.info("Added logging stream to new console.")
-        else:
-            LOGGER.warning(
-                "Max timeout reached or console failed to start. Logs will not be redirected."
-            )
-
-    except BrokenPipeError:
-        LOGGER.error("Broken pipe error: Could not write to the new console.")
-    except Exception as e:
-        LOGGER.error(f"An error occurred while opening the console: {e}")
-
-    return process
 
 
 def load_scoring_config(name) -> dict:
@@ -678,7 +627,7 @@ def get_user_input(prompt: str, exit_on_quit: bool = False) -> str:
     if exit_on_quit:
         try:
             if ui.lower() in ("q", "quit", "exit"):
-                sys.exit(0)
+                exit(0)
         except Exception:
             pass
 
@@ -718,7 +667,7 @@ def ask_user_to_confirm_removals(max_tries: int = 5) -> bool:
             return True
         elif ui.lower() in ("q", "quit", "exit"):
             LOGGER.info("Exit key pressed. Exiting.")
-            exit()
+            exit(0)
         else:
             LOGGER.warning("Invalid input. Please enter 'y' or 'n'.")
 
@@ -746,11 +695,11 @@ def remove_markers_from_online_trial(
         pbar = tqdm.tqdm(total=total_iters, desc=f"Removing markers from {rb_name}")
         for i, marker in enumerate(rigid_bodies[rb_name].get_markers()):
             arr = np.array(removals)[:, i]
-            for frame in arr:
+            for frame, remove in enumerate(arr):
                 pbar.update(1)
-                if not frame:
+                if not remove:
                     continue
-                vframe = frame + start
+                vframe = int(frame + start)
                 x, y, z, _ = vicon.GetTrajectoryAtFrame(subject_name, marker, vframe)
                 vicon.SetTrajectoryAtFrame(subject_name, marker, vframe, x, y, z, False)
 
@@ -776,12 +725,19 @@ def configure_parser():
         action="store_true",
         help="Log output to file.",
     )
-    # parser.add_argument(
-    #     "-c",
-    #     "--console",
-    #     action="store_true",
-    #     help="Opens a new console for logging.",
-    # )
+    parser.add_argument(
+        "-c",
+        "--console",
+        action="store_true",
+        help="Opens a new console for logging. Useful for running script in Vicon Nexus.",
+    )
+
+    parser.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Force continue through user prompts (i.e. continue after plotting, remove markers)",
+    )
 
     parser.add_argument(
         "-s",
@@ -882,22 +838,35 @@ def configure_parser():
         help="Plot marker removals.",
     )
 
+    parser.add_argument(
+        "--keep_console_open",
+        action="store_true",
+        help="Keep console open after script finishes.",
+    )
+
+    parser.add_argument(
+        "--_new_console_opened",
+        action="store_true",
+        help=argparse.SUPPRESS,  # Used when new console is opened to avoid duplicate spawns.
+    )
+
     return parser
 
 
 def main():
-    """!"""
+    """!Main script execution."""
+
     ## Parse Args
     parser = configure_parser()
     args = parser.parse_args()
 
+    if args.console and not args._new_console_opened:
+        dist_utils.run_in_new_console(
+            close_console_on_exit=(not args.keep_console_open)
+        )
+
     mode = "w" if args.log else "off"
     logger.set_root_logger(name="unassign_rb_markers", mode=mode)
-
-    ## Configure Console and Logging
-    console_process = None
-    # if args.console:
-    #     console_process = open_console_logging()
 
     if args.verbose:
         LOGGER.setLevel(logging.DEBUG)
@@ -915,7 +884,7 @@ def main():
             from viconnexusapi import ViconNexus
         except ImportError as e:
             LOGGER.error(f"Error importing Vicon Nexus. Check installation. {e}")
-            exit()
+            exit(-1)
 
         vicon = ViconNexus.ViconNexus()
         project_dir, trial_fp, vsk_fp, subject_name = validate_online_args(args, vicon)
@@ -937,14 +906,14 @@ def main():
         marker_trajectories = c3d_parser.get_marker_trajectories(c3d_reader)
         trial_frames = c3d_parser.get_frames(c3d_reader)
     else:
-        markers = vicon.GetMarkerNames()
+        markers = vicon.GetMarkerNames(subject_name)
         marker_trajectories = {}
         for m in markers:
             x, y, z, e = vicon.GetTrajectory(subject_name, m)
-            marker_trajectories[m] = MarkerTrajectory(m, x, y, z, e)
+            marker_trajectories[m] = MarkerTrajectory(x, y, z, e)
 
-        num_frames = vicon.GetFrameCount()
-        trial_frames = list(range(1, num_frames + 1))
+        trial_range = vicon.GetTrialRange()
+        trial_frames = list(range(trial_range[0], trial_range[1]))
 
     start, end = validate_start_end_frames(args, trial_frames)
     frames = list(range(start - trial_frames[0], end - trial_frames[0] + 1))
@@ -965,7 +934,7 @@ def main():
         ui = get_user_input("Continue? (y/n): ", exit_on_quit=True)
         if ui.lower() not in ("y", "yes"):
             LOGGER.info("Exiting.")
-            exit()
+            exit(0)
 
     # Get Marker Removals
     if residual_type == "prior":
@@ -1003,7 +972,7 @@ def main():
         )
 
     if any([args.plot_removals, args.plot_scores, args.plot_residuals]):
-        plt.show(block=True)
+        plt.show(block=offline)
 
     ## Remove Markers from Online Trial
     if not offline and ask_user_to_confirm_removals(max_tries=5):
@@ -1022,17 +991,16 @@ def main():
                 start_end_list = [[l[i] + start, g[i] + start] for i in range(len(l))]
                 removal_ranges[rb_name][marker] = start_end_list
 
-        LOGGER.info("Writing removal ranges to file.")
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         file_ext = "txt" if args.output_file_type == "txt" else "json"
         output_fp = os.path.join(project_dir, f"removals_{timestamp}.{file_ext}")
+        LOGGER.info("Writing removal ranges to file.")
         write_removal_ranges_to_file(removal_ranges, output_fp)
 
     ## Cleanup
     LOGGER.info("Done!")
 
-    if console_process is not None:
-        console_process.terminate()
+    exit(0)
 
 
 def test_main_with_args():
@@ -1041,7 +1009,8 @@ def test_main_with_args():
     sys.argv = [
         "unassign_rb_markers.py",
         "-v",
-        "--offline",
+        # "-s",
+        # "--offline",
         "--output_file_type",
         "txt",
         "--project_dir",
@@ -1054,12 +1023,12 @@ def test_main_with_args():
         "calib",
         "--segments_only",
         "--start_frame",
-        "4000",
+        "5000",
         "--end_frame",
-        "4100",
+        "6000",
         # "--plot_residuals",
-        # "--plot_removals",
-        # "--plot_scores",
+        "--plot_removals",
+        "--plot_scores",
     ]
 
     main()

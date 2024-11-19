@@ -10,11 +10,13 @@ If no item is present for a given section, have it say None.
 
 ## 2024-11-19
 ### Added
-None
+- `utils/dist_utils.py` - helpers for running scripts from different computers
 
 ### Changed
 - Renamed `aux` to `aux_scripts` to avoid Windows reserved word
 - Use relative paths in `generate_template_file_mapper.py`
+- Updated 'online' implementation of `unassign_rb_markers.py` (tested with ViconNexus)
+  - Added flags for opening new console (helpful when running script from within Nexus)
 
 ### Removed
 None
