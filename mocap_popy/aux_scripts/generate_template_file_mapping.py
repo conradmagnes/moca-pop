@@ -80,7 +80,8 @@ def generate_template_json_mapping():
                     LOGGER.warning(
                         f"Template {template_name} already exists for model {model}. Overwriting."
                     )
-                mapping[model][subdir_name].update({template_name: tp})
+                rel_tp = os.path.relpath(tp, subdir)
+                mapping[model][subdir_name].update({template_name: rel_tp})
 
     if not mapping:
         LOGGER.error("No templates found.")

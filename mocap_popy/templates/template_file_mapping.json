@@ -1,7 +1,0 @@
-{
-    "NUSHU_shoe_10_wholefoot": {
-        "rigid_body": {
-            "Foot": "/Users/conrad/dev/mocap_popy/mocap_popy/templates/json/rigid_body/foot.json"
-        }
-    }
-}

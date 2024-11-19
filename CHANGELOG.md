@@ -8,10 +8,22 @@ Each entry has to feature the following sections: **Added**, **Changed**,
 **Removed**, and **Fixed**.
 If no item is present for a given section, have it say None.
 
+## 2024-11-19
+### Added
+None
+
+### Changed
+- Renamed `aux` to `aux_scripts` to avoid Windows reserved word
+- Use relative paths in `generate_template_file_mapper.py`
+
+### Removed
+None
+
 ## 2024-11-18
 ### Added
 - `example_datasets/shoe_stepping` - folder containing example data recorded during Conrad's MT
 - Under `mocap_popy`
+  - `aux/generate_template_file_mapper.py` - script for generating a json file that maps model names to their respective template file locations
   - `config/` - folder containing common configuration files
     - `directory.py` - defines paths to common directories
     - `logger.py` - module-wide logger configuration

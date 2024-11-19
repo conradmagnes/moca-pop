@@ -3,7 +3,31 @@
     Unassign Rigid Body Markers
     ===========================
 
-    This script removes markers from rigid bodies based on residual segment and (optionally) joint scores.
+    This script uses the RigidBody model to score and unassign labeled markers from a trial based on residual scores.
+    Residuals can be calculated based on calibration or prior frames.
+    The script can be run 'online', using an active trial in Vicon Nexus, or 'offline',
+    using a specified project directory with a C3D and VSK file.
+
+    The script will optionally plot the calculated marker residuals, scroes, and unassignments (removals).
+    The results can be saved to a file (txt or json).
+
+    Usage:
+    ------
+    From scripts directory:
+    1. Offline Mode:
+        python -m unassign_rb_markers.py -off -p <project_dir> -tn <trial_name> -sn <subject_name> -start <start_frame> -end <end_frame>
+
+    2. Online Mode:
+        python -m unassign_rb_markers.py -on -sn <subject_name> --start_frame <start_frame> --end end_frame <end_frame>
+
+    Options:
+    --------
+    Run 'python -m unassign_rb_markers.py -h' for options.
+
+    Returns:
+    --------
+    0 if successful, -1 if an error occurred.
+
 
     @author C. McCarthy
 """
@@ -569,7 +593,10 @@ def validate_start_end_frames(args, frames: list[int]) -> tuple[int, int]:
 
 
 def open_console_logging():
-    """!Open a new console for logging output."""
+    """!Open a new console for logging output.
+
+    This needs further testing. Disabling for now.
+    """
     global LOGGER
     prcocess = None
     subprocess_cmd = ""
@@ -579,8 +606,9 @@ def open_console_logging():
         subprocess_cmd = "open -a Terminal"
     else:
         LOGGER.info("Console logging not supported on this platform.")
+        return prcocess
 
-    if subprocess_cmd:
+    try:
         process = subprocess.Popen(
             subprocess_cmd,
             shell=True,
@@ -589,9 +617,26 @@ def open_console_logging():
             stderr=subprocess.PIPE,
             text=True,
         )
-        handler = logging.StreamHandler(process.stdin)
-        LOGGER.addHandler(handler)
-        LOGGER.info("Opening new console for logging.")
+
+        max_timeout = 10
+        start_time = time.time()
+        while process.poll() is None and (time.time() - start_time) < max_timeout:
+            print("Waiting for console to start...")
+            time.sleep(0.5)
+
+        if process.poll() is None:
+            handler = logging.StreamHandler(process.stdin)
+            logging.root.addHandler(handler)
+            LOGGER.info("Added logging stream to new console.")
+        else:
+            LOGGER.warning(
+                "Max timeout reached or console failed to start. Logs will not be redirected."
+            )
+
+    except BrokenPipeError:
+        LOGGER.error("Broken pipe error: Could not write to the new console.")
+    except Exception as e:
+        LOGGER.error(f"An error occurred while opening the console: {e}")
 
     return process
 
@@ -719,6 +764,64 @@ def configure_parser():
     )
 
     parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Increase logging verbosity to debug.",
+    )
+
+    parser.add_argument(
+        "-l",
+        "--log",
+        action="store_true",
+        help="Log output to file.",
+    )
+    # parser.add_argument(
+    #     "-c",
+    #     "--console",
+    #     action="store_true",
+    #     help="Opens a new console for logging.",
+    # )
+
+    parser.add_argument(
+        "-s",
+        "--save_to_file",
+        action="store_true",
+        help="Saves the results to a file, i.e. a record of frames each marker was removed from.",
+    )
+
+    parser.add_argument(
+        "-off",
+        "--offline",
+        action="store_true",
+        help="Processes c3d files offline rather than connected to Nexus. Markers will not be removed from the trial.",
+    )
+
+    parser.add_argument(
+        "--output_file_type",
+        type=str,
+        default="txt",
+        choices=["json", "txt"],
+        help="Output file type for removals.",
+    )
+
+    parser.add_argument(
+        "-res",
+        "--residual_type",
+        type=str,
+        default="calib",
+        choices=["calib", "prior"],
+        help="Type of residuals to consider for scoring. `calib` compares to calibration, `prior` compares to prior frame.",
+    )
+
+    parser.add_argument(
+        "--segments_only",
+        action="store_true",
+        help="Only score segment length residuals (ignore joint angles). Significantly reduces computation time.",
+    )
+
+    parser.add_argument(
+        "-p",
         "--project_dir",
         type=str,
         default="",
@@ -726,6 +829,7 @@ def configure_parser():
     )
 
     parser.add_argument(
+        "-tn",
         "--trial_name",
         type=str,
         default="",
@@ -733,6 +837,7 @@ def configure_parser():
     )
 
     parser.add_argument(
+        "-sn",
         "--subject_name",
         type=str,
         default="",
@@ -744,26 +849,6 @@ def configure_parser():
         type=str,
         default="default",
         help="Name of the scoring configuration to use. (saved to mocap_popy/scripts/unassign_rb_markers/scoring)",
-    )
-
-    parser.add_argument(
-        "--offline",
-        action="store_true",
-        help="Processes c3d files in offline mode and stores removals in a json file.",
-    )
-
-    parser.add_argument(
-        "--residual_type",
-        type=str,
-        default="calib",
-        choices=["calib", "prior"],
-        help="Type of residuals to consider for scoring.",
-    )
-
-    parser.add_argument(
-        "--segments_only",
-        action="store_true",
-        help="Only consider segment residuals.",
     )
 
     parser.add_argument(
@@ -786,48 +871,15 @@ def configure_parser():
     )
 
     parser.add_argument(
-        "--plot_removals",
-        action="store_true",
-        help="Plot marker removals.",
-    )
-
-    parser.add_argument(
         "--plot_scores",
         action="store_true",
         help="Plot marker scores.",
     )
 
     parser.add_argument(
-        "--output_file_type",
-        type=str,
-        default="txt",
-        choices=["json", "txt"],
-        help="Output file type for removals.",
-    )
-
-    parser.add_argument(
-        "--write_to_file",
+        "--plot_removals",
         action="store_true",
-        help="Write removal ranges to file.",
-    )
-
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Increase logging verbosity to debug.",
-    )
-
-    parser.add_argument(
-        "--log",
-        action="store_true",
-        help="Log output to file.",
-    )
-
-    parser.add_argument(
-        "--no_console",
-        action="store_true",
-        help="Do not log to console.",
+        help="Plot marker removals.",
     )
 
     return parser
@@ -839,13 +891,13 @@ def main():
     parser = configure_parser()
     args = parser.parse_args()
 
-    ## Configure Console and Logging
-    console_process = None
-    if not args.no_console:
-        console_process = open_console_logging()
-
     mode = "w" if args.log else "off"
     logger.set_root_logger(name="unassign_rb_markers", mode=mode)
+
+    ## Configure Console and Logging
+    console_process = None
+    # if args.console:
+    #     console_process = open_console_logging()
 
     if args.verbose:
         LOGGER.setLevel(logging.DEBUG)
@@ -935,18 +987,18 @@ def main():
             )
         )
 
-    ## Plot Removals and Scores
-    if args.plot_removals:
-        fig, ax = plot_removals(
-            calibrated_rigid_bodies,
-            removal_histories,
-            start_frame=trial_frames[frames[0]],
-        )
-
+    ## Plot Scores and Removals
     if args.plot_scores:
         fig, ax = plot_scores(
             calibrated_rigid_bodies,
             score_histories,
+            start_frame=trial_frames[frames[0]],
+        )
+
+    if args.plot_removals:
+        fig, ax = plot_removals(
+            calibrated_rigid_bodies,
+            removal_histories,
             start_frame=trial_frames[frames[0]],
         )
 
@@ -960,7 +1012,7 @@ def main():
         )
 
     ## Write Removal Ranges to File
-    if args.write_to_file:
+    if args.save_to_file:
         removal_ranges = {}
         for rb_name, removals in removal_histories.items():
             removal_ranges[rb_name] = {}
@@ -988,7 +1040,10 @@ def test_main_with_args():
 
     sys.argv = [
         "unassign_rb_markers.py",
+        "-v",
         "--offline",
+        "--output_file_type",
+        "txt",
         "--project_dir",
         "shoe_stepping",
         "--trial_name",
@@ -1001,14 +1056,10 @@ def test_main_with_args():
         "--start_frame",
         "4000",
         "--end_frame",
-        "6000",
+        "4100",
         # "--plot_residuals",
         # "--plot_removals",
         # "--plot_scores",
-        "--output_file_type",
-        "txt",
-        "--no_console",
-        "--v",
     ]
 
     main()
