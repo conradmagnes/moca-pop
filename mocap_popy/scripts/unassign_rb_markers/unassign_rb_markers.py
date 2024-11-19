@@ -525,11 +525,11 @@ def validate_online_args(args, vicon):
     if not args.subject_name:
         LOGGER.info("Searching for available subject templates...")
         candidate_subject_names = []
+        mapper = model_template_loader.load_mapper()
         for name, template, status in zip(
             subject_names, subject_templates, subject_statuses
         ):
-            temp = model_template_loader.load_template_from_json(template)
-            if temp is not None:
+            if template in mapper:
                 candidate_subject_names.append((name, status))
         if len(candidate_subject_names) == 0:
             LOGGER.error("No matching templates found for trial subjects. Exiting.")
@@ -542,7 +542,7 @@ def validate_online_args(args, vicon):
                 LOGGER.error("Could not infer subject name (multiple or none active).")
                 exit()
 
-        subject_name = candidate_subject_names[0]
+        subject_name, _ = candidate_subject_names[0]
 
     elif args.subject_name not in subject_names:
         LOGGER.error(f"Subject name '{args.subject_name}' not found in Nexus. Exiting.")
@@ -746,11 +746,11 @@ def remove_markers_from_online_trial(
         pbar = tqdm.tqdm(total=total_iters, desc=f"Removing markers from {rb_name}")
         for i, marker in enumerate(rigid_bodies[rb_name].get_markers()):
             arr = np.array(removals)[:, i]
-            for frame in arr:
+            for frame, remove in enumerate(arr):
                 pbar.update(1)
-                if not frame:
+                if not remove:
                     continue
-                vframe = frame + start
+                vframe = int(frame + start)
                 x, y, z, _ = vicon.GetTrajectoryAtFrame(subject_name, marker, vframe)
                 vicon.SetTrajectoryAtFrame(subject_name, marker, vframe, x, y, z, False)
 
@@ -937,14 +937,14 @@ def main():
         marker_trajectories = c3d_parser.get_marker_trajectories(c3d_reader)
         trial_frames = c3d_parser.get_frames(c3d_reader)
     else:
-        markers = vicon.GetMarkerNames()
+        markers = vicon.GetMarkerNames(subject_name)
         marker_trajectories = {}
         for m in markers:
             x, y, z, e = vicon.GetTrajectory(subject_name, m)
-            marker_trajectories[m] = MarkerTrajectory(m, x, y, z, e)
+            marker_trajectories[m] = MarkerTrajectory(x, y, z, e)
 
-        num_frames = vicon.GetFrameCount()
-        trial_frames = list(range(1, num_frames + 1))
+        trial_range = vicon.GetTrialRange()
+        trial_frames = list(range(trial_range[0], trial_range[1]))
 
     start, end = validate_start_end_frames(args, trial_frames)
     frames = list(range(start - trial_frames[0], end - trial_frames[0] + 1))
@@ -1003,7 +1003,7 @@ def main():
         )
 
     if any([args.plot_removals, args.plot_scores, args.plot_residuals]):
-        plt.show(block=True)
+        plt.show(block=offline)
 
     ## Remove Markers from Online Trial
     if not offline and ask_user_to_confirm_removals(max_tries=5):
@@ -1041,7 +1041,8 @@ def test_main_with_args():
     sys.argv = [
         "unassign_rb_markers.py",
         "-v",
-        "--offline",
+        "-s",
+        # "--offline",
         "--output_file_type",
         "txt",
         "--project_dir",
@@ -1054,12 +1055,12 @@ def test_main_with_args():
         "calib",
         "--segments_only",
         "--start_frame",
-        "4000",
+        "5000",
         "--end_frame",
-        "4100",
+        "6000",
         # "--plot_residuals",
-        # "--plot_removals",
-        # "--plot_scores",
+        "--plot_removals",
+        "--plot_scores",
     ]
 
     main()
@@ -1068,3 +1069,4 @@ def test_main_with_args():
 if __name__ == "__main__":
     # test_main_with_args()
     main()
+
