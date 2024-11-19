@@ -15,14 +15,14 @@
     ------
     From scripts directory:
     1. Offline Mode:
-        python -m unassign_rb_markers.py -off -p <project_dir> -tn <trial_name> -sn <subject_name> -start <start_frame> -end <end_frame>
+        python unassign_rb_markers.py -off -p <project_dir> -tn <trial_name> -sn <subject_name> -start <start_frame> -end <end_frame>
 
     2. Online Mode:
-        python -m unassign_rb_markers.py -on -sn <subject_name> --start_frame <start_frame> --end end_frame <end_frame>
+        python unassign_rb_markers.py -on -sn <subject_name> --start_frame <start_frame> --end end_frame <end_frame>
 
     Options:
     --------
-    Run 'python -m unassign_rb_markers.py -h' for options.
+    Run 'python unassign_rb_markers.py -h' for options.
 
     Returns:
     --------
@@ -701,7 +701,7 @@ def remove_markers_from_online_trial(
                     continue
                 vframe = int(frame + start)
                 x, y, z, _ = vicon.GetTrajectoryAtFrame(subject_name, marker, vframe)
-                vicon.SetTrajectoryAtFrame(subject_name, marker, vframe, x,y,z, False)
+                vicon.SetTrajectoryAtFrame(subject_name, marker, vframe, x, y, z, False)
 
     LOGGER.info("Markers removed.")
 
@@ -736,7 +736,7 @@ def configure_parser():
         "-f",
         "--force",
         action="store_true",
-        help="Force continue through user prompts (i.e. continue after plotting, remove markers)"
+        help="Force continue through user prompts (i.e. continue after plotting, remove markers)",
     )
 
     parser.add_argument(
@@ -839,13 +839,19 @@ def configure_parser():
     )
 
     parser.add_argument(
-        "--_new_console_opened",
+        "--keep_console_open",
         action="store_true",
-        help="[Private] Do no call explicitly. Used when new console is opened to avoid duplicate spawns.",
+        help="Keep console open after script finishes.",
     )
 
+    parser.add_argument(
+        "--_new_console_opened",
+        action="store_true",
+        help=argparse.SUPPRESS,  # Used when new console is opened to avoid duplicate spawns.
+    )
 
     return parser
+
 
 def main():
     """!Main script execution."""
@@ -855,7 +861,9 @@ def main():
     args = parser.parse_args()
 
     if args.console and not args._new_console_opened:
-        dist_utils.run_in_new_console(close_console_on_exit=True)
+        dist_utils.run_in_new_console(
+            close_console_on_exit=(not args.keep_console_open)
+        )
 
     mode = "w" if args.log else "off"
     logger.set_root_logger(name="unassign_rb_markers", mode=mode)
@@ -983,20 +991,16 @@ def main():
                 start_end_list = [[l[i] + start, g[i] + start] for i in range(len(l))]
                 removal_ranges[rb_name][marker] = start_end_list
 
-        
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         file_ext = "txt" if args.output_file_type == "txt" else "json"
         output_fp = os.path.join(project_dir, f"removals_{timestamp}.{file_ext}")
         LOGGER.info("Writing removal ranges to file.")
         write_removal_ranges_to_file(removal_ranges, output_fp)
 
-
     ## Cleanup
     LOGGER.info("Done!")
 
     exit(0)
-
-
 
 
 def test_main_with_args():
@@ -1033,4 +1037,3 @@ def test_main_with_args():
 if __name__ == "__main__":
     # test_main_with_args()
     main()
-
