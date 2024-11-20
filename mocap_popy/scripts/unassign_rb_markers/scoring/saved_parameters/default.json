@@ -1,0 +1,15 @@
+{
+    "preagg_thresholding":{
+        "segment": true,
+        "joint": true
+    },
+    "aggregation_method":{
+        "segment": "mean",
+        "joint": "mean"
+    },
+    "aggregation_weight":{
+        "segment": 1.0,
+        "joint": 0.00278
+    },
+    "removal_threshold": 0.0
+}

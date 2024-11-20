@@ -11,17 +11,18 @@
     @author C. McCarthy
 """
 
-import dataclasses
-from itertools import combinations
-from typing import Union, Optional, Iterable
+import copy
 import logging
+from itertools import combinations
+from typing import Union, Optional, Iterable, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
-
+import tqdm
 
 import mocap_popy.config.regex as regex
 import mocap_popy.utils.string_utils as str_utils
+
 
 LOGGER = logging.getLogger(__name__)
 
