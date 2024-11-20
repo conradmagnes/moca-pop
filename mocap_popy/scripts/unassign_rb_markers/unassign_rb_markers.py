@@ -453,21 +453,21 @@ def validate_offline_args(args) -> tuple:
     @return tuple of project_dir, trial_fp, vsk_fp, subject_name
     """
 
-    if not args.project_dir or not args.trial_name or not args.subject_name:
+    if not args.project_name or not args.trial_name or not args.subject_name:
         LOGGER.error(
             "Project directory, trial name, and subject name must be provided in offline mode."
         )
         exit(-1)
 
-    if "example_datasets" in args.project_dir:
+    if "example_datasets" in args.project_name:
         project_dir = os.path.join(
-            directory.DATASET_DIR, args.project_dir.split("/")[-1]
+            directory.DATASET_DIR, args.project_name.split("/")[-1]
         )
-    elif args.project_dir in os.listdir(directory.DATASET_DIR):
+    elif args.project_name in os.listdir(directory.DATASET_DIR):
         LOGGER.info("Found project directory in example datasets.")
-        project_dir = os.path.join(directory.DATASET_DIR, args.project_dir)
+        project_dir = os.path.join(directory.DATASET_DIR, args.project_name)
     else:
-        project_dir = args.project_dir
+        project_dir = args.project_name
 
     if not os.path.isdir(project_dir):
         LOGGER.error(f"Project directory does not exist ({project_dir}). Exiting.")
@@ -616,34 +616,6 @@ def write_removal_ranges_to_file(removal_ranges: dict, file_path: str):
         json_utils.export_dict_as_json(removal_ranges, file_path)
 
 
-def ask_user_to_confirm_removals(max_tries: int = 5) -> bool:
-    """!Ask the user to confirm removals.
-
-    Exits if user enters 'q', 'quit', or 'exit', or if max_tries is reached.
-    """
-    ui = ""
-    i = 0
-    while ui.lower() not in ("y", "yes", "n", "no") and i < max_tries:
-        ui = hmi.get_user_input(
-            "Would you like to remove marker labels from the trial? (y/n): "
-        )
-        if ui.lower() in ("n", "no"):
-            return False
-        elif ui.lower() in ("y", "yes"):
-            return True
-        elif ui.lower() in ("q", "quit", "exit"):
-            LOGGER.info("Exit key pressed. Exiting.")
-            exit(0)
-        else:
-            LOGGER.warning("Invalid input. Please enter 'y' or 'n'.")
-
-        i += 1
-        if i == max_tries:
-            LOGGER.warning("Input limit reached. Continuing without removal.")
-
-    return False
-
-
 def remove_markers_from_online_trial(
     vicon, subject_name, removal_histories, rigid_bodies, start
 ):
@@ -700,11 +672,16 @@ def configure_parser():
 
     parser.add_argument(
         "-f",
-        "--force",
+        "--force_true",
         action="store_true",
-        help="Force continue through user prompts (i.e. continue after plotting, remove markers)",
+        help="Force continue through user prompts.",
     )
-
+    parser.add_argument(
+        "-p",
+        "--preserve_markers",
+        action="store_true",
+        help="Do not remove markers from the trial.",
+    )
     parser.add_argument(
         "-s",
         "--save_to_file",
@@ -743,8 +720,8 @@ def configure_parser():
     )
 
     parser.add_argument(
-        "-p",
-        "--project_dir",
+        "-pn",
+        "--project_name",
         type=str,
         default="",
         help="Path to the project directory. Must be provided if using 'offline' mode.",
@@ -836,6 +813,7 @@ def main():
 
     if args.verbose:
         LOGGER.setLevel(logging.DEBUG)
+        scorer.LOGGER.setLevel(logging.DEBUG)
 
     LOGGER.info("Running `unassign_rb_markers.py` ...")
     LOGGER.debug(args)
@@ -900,11 +878,14 @@ def main():
         fig.show()
         LOGGER.info("Keep plot open to continue to see other plots.")
 
-        ui = hmi.get_user_input(
-            "Continue? (y/n): ",
-            exit_on_quit=True,
-            choices=[hmi.YES_KEYWORDS, hmi.NO_KEYWORDS],
-        )
+        if args.force_true:
+            ui = 0
+        else:
+            ui = hmi.get_user_input(
+                "Continue? (y/n): ",
+                exit_on_quit=True,
+                choices=[hmi.YES_KEYWORDS, hmi.NO_KEYWORDS],
+            )
         if ui == 1:
             LOGGER.info("Done.")
             exit(0)
@@ -945,13 +926,24 @@ def main():
         )
 
     if any([args.plot_removals, args.plot_scores, args.plot_residuals]):
-        plt.show(block=offline)
+        block = offline or args.preserve_markers
+        plt.show(block=block)
 
     ## Remove Markers from Online Trial
-    if not offline and ask_user_to_confirm_removals(max_tries=5):
-        remove_markers_from_online_trial(
-            vicon, subject_name, removal_histories, calibrated_rigid_bodies, start
-        )
+    if not (offline or args.preserve_markers):
+        if args.force_true:
+            ui = 0
+        else:
+            ui = hmi.get_user_input(
+                "Remove markers from trial? (y/n): ",
+                exit_on_quit=True,
+                choices=[hmi.YES_KEYWORDS, hmi.NO_KEYWORDS],
+                num_tries=5,
+            )
+        if ui == 0:
+            remove_markers_from_online_trial(
+                vicon, subject_name, removal_histories, calibrated_rigid_bodies, start
+            )
 
     ## Write Removal Ranges to File
     if args.save_to_file:
@@ -982,7 +974,11 @@ def test_main_with_args():
     sys.argv = [
         "unassign_rb_markers.py",
         "-v",
-        # "-s",
+        "-s",
+        "-f",
+        "-p",
+        "--scoring_name",
+        "foot",
         # "--offline",
         # "--output_file_type",
         # "txt",
@@ -994,11 +990,11 @@ def test_main_with_args():
         # "subject",
         "--residual_type",
         "calib",
-        # "--segments_only",
+        "--segments_only",
         "--start_frame",
-        "4000",
+        "7000",
         "--end_frame",
-        "6000",
+        "8000",
         "--plot_residuals",
         "--plot_removals",
         "--plot_scores",

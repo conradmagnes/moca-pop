@@ -1,0 +1,32 @@
+{
+    "preagg_thresholding":{
+        "segment": true,
+        "joint": false
+    },
+    "aggregation_method":{
+        "segment": "mean",
+        "joint": "mean"
+    },
+    "aggregation_weight":{
+        "segment": 1.0,
+        "joint": 0.00278
+    },
+    "removal_threshold": {
+        "Right_HB": 0.05,
+        "Right_HL": 0.05,
+        "Right_ML": 0.05,
+        "Right_TL": 0.05,
+        "Right_TF": 0.05,
+        "Right_TM": 0.05,
+        "Right_MM": 0.05,
+        "Right_HM": 0.05,
+        "Left_HB": 0.05,
+        "Left_HL": 0.05,
+        "Left_ML": 0.05,
+        "Left_TL": 0.05,
+        "Left_TF": 0.05,
+        "Left_TM": 0.05,
+        "Left_MM": 0.05,
+        "Left_HM": 0.05
+    }
+}

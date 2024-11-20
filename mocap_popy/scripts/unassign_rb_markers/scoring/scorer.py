@@ -49,6 +49,7 @@ def generate_residual_histories(
         components.append("joint")
 
     agg_params = ScoringParameters() if agg_params is None else agg_params
+    LOGGER.debug(f"Aggregation parameters: {agg_params}")
 
     res_types = [f"residual_{residual_type}"]
     rb_trajs: dict[str, MarkerTrajectory] = {
@@ -63,23 +64,34 @@ def generate_residual_histories(
         total=total_iters, desc=f"Generating residuals for {initial_body.name}: "
     )
 
+    current_rigid_body = None
     prior_rigid_body = None
+    ref_lengths = None
+    if residual_type == "prior":
+        ref_lengths = {str(seg): seg.length for seg in initial_body.segments}
+
     segment_residuals = []
     joint_residuals = None if segments_only else []
 
     for frame in range(start_frame, end):
         nodes = [traj.generate_node(m, frame) for m, traj in rb_trajs.items()]
-        if residual_type == "calib" or prior_rigid_body is None:
+        if residual_type == "calib" or current_rigid_body is None:
+            calib_rigid_body = initial_body
             current_rigid_body = copy.deepcopy(initial_body)
         else:
-            current_rigid_body = copy.deepcopy(prior_rigid_body)
+            calib_rigid_body = None
+            prior_rigid_body = copy.deepcopy(current_rigid_body)
 
         current_rigid_body.update_node_positions(
             nodes, recompute_lengths=True, recompute_angles=(not segments_only)
         )
-        current_rigid_body.compute_segment_residuals(initial_body)
+        current_rigid_body.compute_segment_residuals(
+            calib_rigid_body, prior_rigid_body, ref_lengths
+        )
         if not segments_only:
-            current_rigid_body.compute_joint_residuals(initial_body)
+            current_rigid_body.compute_joint_residuals(
+                calib_rigid_body, prior_rigid_body
+            )
 
         segments_res = []
         joint_res = []
