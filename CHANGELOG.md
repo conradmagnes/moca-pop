@@ -8,15 +8,33 @@ Each entry has to feature the following sections: **Added**, **Changed**,
 **Removed**, and **Fixed**.
 If no item is present for a given section, have it say None.
 
+## 2024-11-20
+### Added
+- `mocap_popy/utils/hmi.py` - helpers for interacting with command line
+- `mocap_popy/scripts/unassign_rb_markers/scoring`
+  - `saved_parameters/` - folder containing saved scoring parameters
+  - `scoringParameters.py` - model for scoring params (pydantic)
+      - includes aggregation parameters and score thresholds (including at node level)
+
+### Changed
+- Renamed and update `rigid_body_scorer.py` to `scorer.py` and moved to `mocap_popy/scripts/unassign_rb_markers/scoring`
+  - Fixed duplicate scoring issue during sort task in `scorer.py` (include/exclude arg)
+  - deprecated component-level thresholds before aggregation
+- Updated `unassign_rb_markers.py` to use `scorer.py` and `scoringParameters.py`
+
+### Removed
+None
+
 ## 2024-11-19
 ### Added
-- `utils/dist_utils.py` - helpers for running scripts from different computers
+- `mocap_popy/utils/dist_utils.py` - helpers for running scripts from different computers
 
 ### Changed
 - Renamed `aux` to `aux_scripts` to avoid Windows reserved word
 - Use relative paths in `generate_template_file_mapper.py`
 - Updated 'online' implementation of `unassign_rb_markers.py` (tested with ViconNexus)
   - Added flags for opening new console (helpful when running script from within Nexus)
+
 
 ### Removed
 None

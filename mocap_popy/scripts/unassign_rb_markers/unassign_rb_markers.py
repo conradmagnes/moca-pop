@@ -89,8 +89,7 @@ def get_marker_removals_from_calibration_bodies(
     marker_trajectories: dict[str, MarkerTrajectory],
     frames: list[int],
     segments_only: bool,
-    scoring_params: dict = None,
-    agg_kwargs: dict = None,
+    scoring_params: scoringParameters.ScoringParameters = None,
     max_removals_per_frame: int = 3,
 ) -> tuple[dict[str, list], dict[str, list]]:
     """!Get marker removals from calibration bodies.
@@ -143,7 +142,9 @@ def get_marker_removals_from_calibration_bodies(
                 return_composite_score=True,
             )
             worst_nodes = scorer.sort_marker_scores(
-                node_scores, threshold=0, max_markers=1, include_duplicates=False
+                node_scores,
+                threshold=scoring_params.removal_threshold,
+                max_markers=1,
             )
 
             removals, scores = {}, {}
@@ -166,7 +167,9 @@ def get_marker_removals_from_calibration_bodies(
                     return_composite_score=True,
                 )
                 worst_nodes = scorer.sort_marker_scores(
-                    node_scores, threshold=0, max_markers=1
+                    node_scores,
+                    threshold=scoring_params.removal_threshold,
+                    max_markers=1,
                 )
                 i += 1
 
@@ -265,7 +268,9 @@ def get_marker_removals_from_prior_bodies(
                 return_composite_score=True,
             )
             worst_nodes = scorer.sort_marker_scores(
-                node_scores, threshold=0, max_markers=1
+                node_scores,
+                threshold=scoring_params.removal_threshold,
+                max_markers=1,
             )
 
             removals, scores = {}, {}
@@ -288,7 +293,9 @@ def get_marker_removals_from_prior_bodies(
                     return_composite_score=True,
                 )
                 worst_nodes = scorer.sort_marker_scores(
-                    node_scores, threshold=0, max_markers=1
+                    node_scores,
+                    threshold=scoring_params.removal_threshold,
+                    max_markers=1,
                 )
                 i += 1
 
@@ -989,9 +996,9 @@ def test_main_with_args():
         "calib",
         # "--segments_only",
         "--start_frame",
-        "10650",
+        "4000",
         "--end_frame",
-        "10750",
+        "6000",
         "--plot_residuals",
         "--plot_removals",
         "--plot_scores",

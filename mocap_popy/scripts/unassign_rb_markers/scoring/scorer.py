@@ -200,7 +200,7 @@ def score_rigid_body_components(
 
 def sort_marker_scores(
     marker_scores: dict[str, float],
-    threshold: Optional[float] = None,
+    threshold: Optional[Union[dict[str, float], float]] = None,
     max_markers: Optional[int] = None,
     include_duplicates: bool = False,
 ) -> list[tuple[str, float]]:
@@ -215,7 +215,22 @@ def sort_marker_scores(
     sorted_scores = sorted(marker_scores.items(), key=lambda x: x[1], reverse=True)
 
     if threshold is not None:
-        sorted_scores = [marker for marker in sorted_scores if marker[1] > threshold]
+        if isinstance(threshold, float):
+            sorted_scores = [
+                marker for marker in sorted_scores if marker[1] > threshold
+            ]
+        else:
+            new_scores = []
+            for m in sorted_scores:
+                if m[0] not in threshold:
+                    LOGGER.debug(
+                        f"Threshold not found for marker {m[0]}. Skipping marker."
+                    )
+                    continue
+                if m[1] > threshold[m[0]]:
+                    new_scores.append(m)
+
+            sorted_scores = new_scores
 
     if max_markers is not None and len(sorted_scores) > max_markers:
         last_candidate = sorted_scores[max_markers - 1][1]
