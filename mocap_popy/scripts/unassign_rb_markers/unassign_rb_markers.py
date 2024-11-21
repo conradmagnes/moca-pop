@@ -461,7 +461,7 @@ def validate_offline_args(args) -> tuple:
 
     if "example_datasets" in args.project_name:
         project_dir = os.path.join(
-            directory.DATASET_DIR, args.project_name.split("/")[-1]
+            directory.DATASET_DIR, args.project_name.split(os.sep)[-1]
         )
     elif args.project_name in os.listdir(directory.DATASET_DIR):
         LOGGER.info("Found project directory in example datasets.")
@@ -598,6 +598,18 @@ def load_scoring_parameters(name) -> scoringParameters.ScoringParameters:
         LOGGER.info("Continuing.")
 
     return scoringParameters.ScoringParameters()
+
+
+def get_next_filename(
+    dirpath: str, basename: str, file_ext: str, limit: int = 100
+) -> str:
+    """!Get the next available filename for a basename."""
+    if os.path.exists(os.path.join(dirpath, f"{basename}.{file_ext}")):
+        for i in range(1, limit):
+            if not os.path.exists(os.path.join(dirpath, f"{basename}_{i}.{file_ext}")):
+                basename = f"{basename}_{i}"
+                break
+    return os.path.join(dirpath, f"{basename}.{file_ext}")
 
 
 def write_removal_ranges_to_file(removal_ranges: dict, file_path: str):
@@ -833,6 +845,11 @@ def main():
         vicon = ViconNexus.ViconNexus()
         project_dir, trial_fp, vsk_fp, subject_name = validate_online_args(args, vicon)
 
+    LOGGER.info(
+        "Project: {}, Trial: {}, VSK: {}".format(
+            *[os.path.basename(x) for x in [project_dir, trial_fp, vsk_fp]]
+        ),
+    )
     segments_only = args.segments_only
     residual_type = args.residual_type
 
@@ -925,10 +942,6 @@ def main():
             start_frame=trial_frames[frames[0]],
         )
 
-    if any([args.plot_removals, args.plot_scores, args.plot_residuals]):
-        block = offline or args.preserve_markers
-        plt.show(block=block)
-
     ## Remove Markers from Online Trial
     if not (offline or args.preserve_markers):
         if args.force_true:
@@ -956,11 +969,17 @@ def main():
                 start_end_list = [[l[i] + start, g[i] + start] for i in range(len(l))]
                 removal_ranges[rb_name][marker] = start_end_list
 
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
         file_ext = "txt" if args.output_file_type == "txt" else "json"
-        output_fp = os.path.join(project_dir, f"removals_{timestamp}.{file_ext}")
-        LOGGER.info("Writing removal ranges to file.")
+        tn = trial_fp.split(os.sep)[-1].split(".")[0]
+        output_fn = f"{tn}_removals"
+        output_fp = get_next_filename(project_dir, output_fn, file_ext)
         write_removal_ranges_to_file(removal_ranges, output_fp)
+        LOGGER.info(f"Removal ranges written to {output_fp}")
+
+    if any([args.plot_removals, args.plot_scores, args.plot_residuals]):
+        LOGGER.info("Plotting...")
+        block = offline or args.preserve_markers
+        plt.show(block=block)
 
     ## Cleanup
     LOGGER.info("Done!")
@@ -982,7 +1001,7 @@ def test_main_with_args():
         # "--offline",
         # "--output_file_type",
         # "txt",
-        # "--project_dir",
+        # "--project_name",
         # "shoe_stepping",
         # "--trial_name",
         # "trial01",
@@ -992,9 +1011,9 @@ def test_main_with_args():
         "calib",
         "--segments_only",
         "--start_frame",
-        "7000",
+        "21000",
         "--end_frame",
-        "8000",
+        "23000",
         "--plot_residuals",
         "--plot_removals",
         "--plot_scores",
