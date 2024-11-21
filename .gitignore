@@ -1,6 +1,10 @@
+## Code files
+.vscode
+
 ## OS Files
 **/.DS_Store
 **/*~
+.venv
 
 ## Python
 **/__pycache__

@@ -11,7 +11,8 @@ import time
 import mocap_popy.config.directory as directory
 from mocap_popy.models.rigid_body import RigidBody, Node
 from mocap_popy.models.marker_trajectory import MarkerTrajectory
-from mocap_popy.utils import rigid_body_loader, rigid_body_scorer, c3d_parser
+from mocap_popy.scripts.unassign_rb_markers.scoring import scorer
+from mocap_popy.utils import rigid_body_loader, c3d_parser
 from mocap_popy.utils import plot_utils
 
 # %%
@@ -35,12 +36,12 @@ frames = c3d_parser.get_frames(c3d_reader)
 
 # %%
 
-valid_kwargs = rigid_body_scorer.validate_segment_and_joint_kwargs(
+valid_kwargs = scorer.validate_segment_and_joint_kwargs(
     {"test": False}, {"test": True, "test2": False}
 )
 valid_kwargs
 
-valid_kwargs = rigid_body_scorer.validate_segment_and_joint_kwargs(
+valid_kwargs = scorer.validate_segment_and_joint_kwargs(
     {"segment": {"test": False}}, {"test": True, "test2": False}
 )
 valid_kwargs
@@ -51,7 +52,7 @@ segments_only = True
 # %%
 start = time.time()
 
-residual_histories = rigid_body_scorer.generate_residual_histories(
+residual_histories = scorer.generate_residual_histories(
     calibrated_rigid_bodies,
     marker_trajectories,
     "calib",
@@ -65,7 +66,7 @@ print(f"Time: {time.time() - start}")
 # %%
 start = time.time()
 
-residual_histories = rigid_body_scorer.generate_residual_histories(
+residual_histories = scorer.generate_residual_histories(
     calibrated_rigid_bodies,
     marker_trajectories,
     "calib",
@@ -130,14 +131,14 @@ for rb_name, rb in calibrated_rigid_bodies.items():
         if not segments_only:
             current_rigid_body.compute_joint_residuals(rb)
 
-        node_scores = rigid_body_scorer.score_rigid_body_components(
+        node_scores = scorer.score_rigid_body_components(
             current_rigid_body,
             score_component,
             residual_type,
             return_composite_score=True,
             ignore_residual_tolerances=False,
         )
-        worst_nodes = rigid_body_scorer.sort_marker_scores(
+        worst_nodes = scorer.sort_marker_scores(
             node_scores, threshold=0, max_markers=1
         )
         max_iter = 3
@@ -154,14 +155,14 @@ for rb_name, rb in calibrated_rigid_bodies.items():
             scores[node] = score if isinstance(score, (float, int)) else score[0]
 
             current_rigid_body.remove_node(node)
-            node_scores = rigid_body_scorer.score_rigid_body_components(
+            node_scores = scorer.score_rigid_body_components(
                 current_rigid_body,
                 score_component,
                 residual_type,
                 return_composite_score=True,
                 ignore_residual_tolerances=False,
             )
-            worst_nodes = rigid_body_scorer.sort_marker_scores(
+            worst_nodes = scorer.sort_marker_scores(
                 node_scores, threshold=0, max_markers=1
             )
             i += 1
@@ -237,14 +238,14 @@ for rb_name, rb in calibrated_rigid_bodies.items():
         if not segments_only:
             current_rigid_body.compute_joint_residuals(None, prior_rigid_body)
 
-        node_scores = rigid_body_scorer.score_rigid_body_components(
+        node_scores = scorer.score_rigid_body_components(
             current_rigid_body,
             score_component,
             residual_type,
             return_composite_score=True,
             ignore_residual_tolerances=False,
         )
-        worst_nodes = rigid_body_scorer.sort_marker_scores(
+        worst_nodes = scorer.sort_marker_scores(
             node_scores, threshold=0, max_markers=1
         )
         max_iter = 3
@@ -261,14 +262,14 @@ for rb_name, rb in calibrated_rigid_bodies.items():
             scores[node] = score if isinstance(score, (float, int)) else score[0]
 
             current_rigid_body.remove_node(node)
-            node_scores = rigid_body_scorer.score_rigid_body_components(
+            node_scores = scorer.score_rigid_body_components(
                 current_rigid_body,
                 score_component,
                 residual_type,
                 return_composite_score=True,
                 ignore_residual_tolerances=False,
             )
-            worst_nodes = rigid_body_scorer.sort_marker_scores(
+            worst_nodes = scorer.sort_marker_scores(
                 node_scores, threshold=0, max_markers=1
             )
             i += 1

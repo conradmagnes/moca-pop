@@ -42,17 +42,17 @@
         "segments": {
             "HB-HM": 0.15,
             "HB-HL": 0.15,
-            "HM-HL": 0.1,
-            "HM-MM": 0.1,
+            "HM-HL": 0.07,
+            "HM-MM": 0.05,
             "HM-ML": 0.1,
-            "HL-ML": 0.1,
+            "HL-ML": 0.05,
             "HL-MM": 0.1,
-            "MM-ML": 0.1,
-            "MM-TM": 0.1,
+            "MM-ML": 0.07,
+            "MM-TM": 0.15,
             "ML-TL": 0.15,
-            "TM-TL": 0.15,
-            "TM-TF": 0.2,
-            "TL-TF": 0.2
+            "TM-TL": 0.1,
+            "TM-TF": 0.1,
+            "TL-TF": 0.1
         },
         "joints": {
             "HB": 20,

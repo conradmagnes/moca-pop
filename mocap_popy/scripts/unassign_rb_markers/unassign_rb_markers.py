@@ -11,6 +11,28 @@
     The script will optionally plot the calculated marker residuals, scroes, and unassignments (removals).
     The results can be saved to a file (txt or json).
 
+    Scoring Strategies:
+    -------------------
+    This script includes several configuration options to aggregate and weight residuals to determine which markers to remove.
+    These parameters can be set in a JSON file in the 'scoring' directory. The 'default.json' file is used if no other file is provided.
+
+    Segment residuals are the relative difference between measured and calibrated (or prior) segment lengths.
+    Joint residuals are the absolute difference between measured and calibrated (or prior) joint angles.
+    Calculating joint residuals is computationally expensive and may not be necessary for all use cases. 
+    The optional --segments_only flag can be used to only consider segment residuals.
+    The --plot_residuals flag can be used to visualize the segment and joint residuals for each marker.
+
+    Thresolding and aggregation occurs at the segment, joint and/or node level.
+    Thresholds (or tolerances) for individual segments and joints should be set in the model template file.
+    When aggregating segment and joint residuals for each marker, any residual within (+/-) the tolerance is set to zero.
+    Aggregation for segments and joints can be set separately to a sum or average for each node.
+    Aggregated segment and joint residuals are then weighted and summed to determine the final score for each node.
+
+    An additional threshold can be set for each (or all) node scores in the scoring configuration file. If none is provided, the default is 0.
+    
+    The script removes from the rigid body the marker with the highest score, recalculates residuals, and repeats this process for a specified number of iterations.
+    The removals and scores are saved and can be plotted to visualize the process.
+    
     Usage:
     ------
     From scripts directory:
@@ -41,20 +63,22 @@ import time
 from typing import Literal, Union
 import tqdm
 
+
 import matplotlib.pyplot as plt
 import numpy as np
+import pydantic
 
 import mocap_popy.config.directory as directory
 import mocap_popy.config.logger as logger
 from mocap_popy.models.rigid_body import RigidBody, Node
 from mocap_popy.models.marker_trajectory import MarkerTrajectory
+from mocap_popy.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
 from mocap_popy.utils import (
     rigid_body_loader,
-    rigid_body_scorer,
     c3d_parser,
     model_template_loader,
 )
-from mocap_popy.utils import plot_utils, json_utils, dist_utils
+from mocap_popy.utils import plot_utils, json_utils, dist_utils, hmi
 
 
 LOGGER = logging.getLogger("UnassignRigidBodyMarkers")
@@ -65,8 +89,7 @@ def get_marker_removals_from_calibration_bodies(
     marker_trajectories: dict[str, MarkerTrajectory],
     frames: list[int],
     segments_only: bool,
-    scoring_params: dict = None,
-    agg_kwargs: dict = None,
+    scoring_params: scoringParameters.ScoringParameters = None,
     max_removals_per_frame: int = 3,
 ) -> tuple[dict[str, list], dict[str, list]]:
     """!Get marker removals from calibration bodies.
@@ -86,29 +109,8 @@ def get_marker_removals_from_calibration_bodies(
     residual_type = "calib"
     score_component = "segment" if segments_only else "node"
 
-    scoring_params = rigid_body_scorer.validate_segment_and_joint_kwargs(
-        scoring_params, {"score_tolerance": 0, "score_weight": 1}
-    )
+    scoring_params = scoring_params or scoringParameters.ScoringParameters()
     LOGGER.debug(f"Scoring Params Used: {scoring_params}")
-
-    agg_kwargs = rigid_body_scorer.validate_segment_and_joint_kwargs(
-        agg_kwargs, {"average": True, "ignore_tolerance": False}
-    )
-
-    if score_component == "segment":
-        weight = scoring_params["segment"]["score_weight"]
-        tolerance = scoring_params["segment"]["score_tolerance"]
-        average = agg_kwargs["segment"]["average"]
-        ignore_indiv_tolerances = agg_kwargs["segment"]["ignore_tolerance"]
-    else:
-        weight = {k: v["score_weight"] for k, v in scoring_params.items()}
-        tolerance = {k: v["score_tolerance"] for k, v in scoring_params.items()}
-        average = {k: v["average"] for k, v in agg_kwargs.items()}
-        ignore_indiv_tolerances = {
-            k: v["ignore_tolerance"] for k, v in agg_kwargs.items()
-        }
-
-    LOGGER.debug(f"Weight: {weight}, Tolerance: {tolerance}")
 
     score_histories = {}
     removal_binaries = {}
@@ -132,18 +134,17 @@ def get_marker_removals_from_calibration_bodies(
             if not segments_only:
                 current_rigid_body.compute_joint_residuals(rb)
 
-            node_scores = rigid_body_scorer.score_rigid_body_components(
+            node_scores = scorer.score_rigid_body_components(
                 current_rigid_body,
                 score_component,
                 residual_type,
-                score_tolerance=tolerance,
-                score_weight=weight,
-                aggregate_using_average=average,
-                ignore_residual_tolerances=ignore_indiv_tolerances,
+                scoring_parameters=scoring_params,
                 return_composite_score=True,
             )
-            worst_nodes = rigid_body_scorer.sort_marker_scores(
-                node_scores, threshold=0, max_markers=1
+            worst_nodes = scorer.sort_marker_scores(
+                node_scores,
+                threshold=scoring_params.removal_threshold,
+                max_markers=1,
             )
 
             removals, scores = {}, {}
@@ -158,18 +159,17 @@ def get_marker_removals_from_calibration_bodies(
                 scores[node] = score if isinstance(score, (float, int)) else score[0]
 
                 current_rigid_body.remove_node(node)
-                node_scores = rigid_body_scorer.score_rigid_body_components(
+                node_scores = scorer.score_rigid_body_components(
                     current_rigid_body,
                     score_component,
                     residual_type,
-                    score_tolerance=tolerance,
-                    score_weight=weight,
-                    aggregate_using_average=average,
-                    ignore_residual_tolerances=ignore_indiv_tolerances,
+                    scoring_parameters=scoring_params,
                     return_composite_score=True,
                 )
-                worst_nodes = rigid_body_scorer.sort_marker_scores(
-                    node_scores, threshold=0, max_markers=1
+                worst_nodes = scorer.sort_marker_scores(
+                    node_scores,
+                    threshold=scoring_params.removal_threshold,
+                    max_markers=1,
                 )
                 i += 1
 
@@ -184,8 +184,7 @@ def get_marker_removals_from_prior_bodies(
     marker_trajectories: dict[str, MarkerTrajectory],
     frames: list[int],
     segments_only: bool,
-    scoring_params: dict = None,
-    agg_kwargs: dict = None,
+    scoring_params: scoringParameters.ScoringParameters,
     max_removals_per_frame: int = 3,
     tolerance_factor: Union[float, dict] = 1,
 ):
@@ -208,26 +207,8 @@ def get_marker_removals_from_prior_bodies(
     residual_type = "prior"
     score_component = "segment" if segments_only else "node"
 
-    scoring_params = rigid_body_scorer.validate_segment_and_joint_kwargs(
-        scoring_params, {"score_tolerance": 0, "score_weight": 1}
-    )
-
-    agg_kwargs = rigid_body_scorer.validate_segment_and_joint_kwargs(
-        agg_kwargs, {"average": True, "ignore_tolerance": False}
-    )
-
-    if score_component == "segment":
-        weight = scoring_params["segment"]["score_weight"]
-        tolerance = scoring_params["segment"]["score_tolerance"]
-        average = agg_kwargs["segment"]["average"]
-        ignore_indiv_tolerances = agg_kwargs["segment"]["ignore_tolerance"]
-    else:
-        weight = {k: v["score_weight"] for k, v in scoring_params.items()}
-        tolerance = {k: v["score_tolerance"] for k, v in scoring_params.items()}
-        average = {k: v["average"] for k, v in agg_kwargs.items()}
-        ignore_indiv_tolerances = {
-            k: v["ignore_tolerance"] for k, v in agg_kwargs.items()
-        }
+    scoring_params = scoring_params or scoringParameters.ScoringParameters()
+    LOGGER.debug(f"Scoring Params Used: {scoring_params}")
 
     score_histories = {}
     removal_binaries = {}
@@ -279,18 +260,17 @@ def get_marker_removals_from_prior_bodies(
             if not segments_only:
                 current_rigid_body.compute_joint_residuals(None, prior_rigid_body)
 
-            node_scores = rigid_body_scorer.score_rigid_body_components(
+            node_scores = scorer.score_rigid_body_components(
                 current_rigid_body,
                 score_component,
                 residual_type,
-                score_tolerance=tolerance,
-                score_weight=weight,
-                aggregate_using_average=average,
-                ignore_residual_tolerances=ignore_indiv_tolerances,
+                scoring_parameters=scoring_params,
                 return_composite_score=True,
             )
-            worst_nodes = rigid_body_scorer.sort_marker_scores(
-                node_scores, threshold=0, max_markers=1
+            worst_nodes = scorer.sort_marker_scores(
+                node_scores,
+                threshold=scoring_params.removal_threshold,
+                max_markers=1,
             )
 
             removals, scores = {}, {}
@@ -305,18 +285,17 @@ def get_marker_removals_from_prior_bodies(
                 scores[node] = score if isinstance(score, (float, int)) else score[0]
 
                 current_rigid_body.remove_node(node)
-                node_scores = rigid_body_scorer.score_rigid_body_components(
+                node_scores = scorer.score_rigid_body_components(
                     current_rigid_body,
                     score_component,
                     residual_type,
-                    score_tolerance=tolerance,
-                    score_weight=weight,
-                    aggregate_using_average=average,
-                    ignore_residual_tolerances=ignore_indiv_tolerances,
+                    scoring_parameters=scoring_params,
                     return_composite_score=True,
                 )
-                worst_nodes = rigid_body_scorer.sort_marker_scores(
-                    node_scores, threshold=0, max_markers=1
+                worst_nodes = scorer.sort_marker_scores(
+                    node_scores,
+                    threshold=scoring_params.removal_threshold,
+                    max_markers=1,
                 )
                 i += 1
 
@@ -335,7 +314,7 @@ def plot_residual_histories(
     res_type: Literal["calib", "prior"],
     segments_only: bool,
     plot_frames: list[int] = None,
-    agg_kwargs: dict = None,
+    agg_params: scoringParameters.ScoringParameters = None,
 ) -> tuple[plt.Figure, list[plt.Axes]]:
     """!Generates and plots residual histories for rigid bodies.
 
@@ -349,20 +328,23 @@ def plot_residual_histories(
 
     """
     LOGGER.info("Generating residuals...")
-    residual_histories = rigid_body_scorer.generate_residual_histories(
-        rigid_bodies,
-        marker_trajectories,
-        res_type,
-        segments_only,
-        start_frame=frames[0],
-        end_frame=frames[-1],
-        agg_kwargs=agg_kwargs,
-    )
+    residual_histories = {}
+    for rb_name, rb in rigid_bodies.items():
+        residual_histories[rb_name] = scorer.generate_residual_histories(
+            rb,
+            marker_trajectories,
+            res_type,
+            segments_only,
+            start_frame=frames[0],
+            end_frame=frames[-1],
+            agg_params=agg_params,
+        )
+
     LOGGER.info("Plotting residuals histories.")
 
     nrow = 1 if segments_only else 2
     ncol = len(rigid_bodies)
-    fig, ax = plt.subplots(nrow, ncol, figsize=(5 * ncol, 4 * nrow), sharey="row")
+    fig, ax = plt.subplots(nrow, ncol, figsize=(4 * ncol, (3 * nrow)), sharey="row")
 
     seg_axs = ax if nrow == 1 else ax[0, :]
     joint_axs = [] if segments_only else ax[1, :]
@@ -379,7 +361,8 @@ def plot_residual_histories(
 
         if len(joint_axs) > 0:
             rf_joint = np.array(residual_histories[body_name]["joint"])
-            joint_axs[i].plot(rf_joint)
+            for joint_idx in range(rf_joint.shape[1]):
+                joint_axs[i].plot(x, rf_joint[:, joint_idx])
             joint_axs[i].set_ylabel("Joint Residual")
 
     fig.tight_layout()
@@ -470,21 +453,21 @@ def validate_offline_args(args) -> tuple:
     @return tuple of project_dir, trial_fp, vsk_fp, subject_name
     """
 
-    if not args.project_dir or not args.trial_name or not args.subject_name:
+    if not args.project_name or not args.trial_name or not args.subject_name:
         LOGGER.error(
             "Project directory, trial name, and subject name must be provided in offline mode."
         )
         exit(-1)
 
-    if "example_datasets" in args.project_dir:
+    if "example_datasets" in args.project_name:
         project_dir = os.path.join(
-            directory.DATASET_DIR, args.project_dir.split("/")[-1]
+            directory.DATASET_DIR, args.project_name.split(os.sep)[-1]
         )
-    elif args.project_dir in os.listdir(directory.DATASET_DIR):
+    elif args.project_name in os.listdir(directory.DATASET_DIR):
         LOGGER.info("Found project directory in example datasets.")
-        project_dir = os.path.join(directory.DATASET_DIR, args.project_dir)
+        project_dir = os.path.join(directory.DATASET_DIR, args.project_name)
     else:
-        project_dir = args.project_dir
+        project_dir = args.project_name
 
     if not os.path.isdir(project_dir):
         LOGGER.error(f"Project directory does not exist ({project_dir}). Exiting.")
@@ -590,48 +573,43 @@ def validate_start_end_frames(args, frames: list[int]) -> tuple[int, int]:
     return start_frame, end_frame
 
 
-def load_scoring_config(name) -> dict:
-    scoring_dir = os.path.join(directory.SCRIPTS_DIR, "unassign_rb_markers", "scoring")
-    scoring_name = name if name else "default"
-    scoring_fp = os.path.join(scoring_dir, f"{scoring_name}.json")
-    if not os.path.isfile(scoring_fp):
-        LOGGER.warning(
-            f"Scoring configuration file not found: {scoring_fp}. Continuing with defaults."
+def load_scoring_parameters(name) -> scoringParameters.ScoringParameters:
+    scoring_dir = os.path.join(
+        directory.SCRIPTS_DIR, "unassign_rb_markers", "scoring", "saved_parameters"
+    )
+    scoring_fp = os.path.join(scoring_dir, f"{name}.json")
+
+    try:
+        params = json_utils.import_json_as_str(scoring_fp)
+        return scoringParameters.ScoringParameters.model_validate_json(params)
+    except (
+        FileNotFoundError,
+        json_utils.json.JSONDecodeError,
+        pydantic.ValidationError,
+    ) as e:
+        LOGGER.error(f"Error loading scoring parameters at {scoring_fp}. {e}")
+        ui = hmi.get_user_input(
+            "Continue with default parameters? (y/n): ",
+            exit_on_quit=True,
+            choices=[hmi.YES_KEYWORDS, hmi.NO_KEYWORDS],
         )
-        return None
+        if ui == 1:
+            exit(0)
+        LOGGER.info("Continuing.")
 
-    return json_utils.import_json_as_dict(scoring_fp)
-
-
-def color_string(string: str, color: int, bright: bool = False) -> str:
-    """!Format string to be colored
-
-    @param string String to be colored
-    @param color Color to be applied to string
-    @param bright Wheteher to use bright color. Default False
-    @return Colorized string
-    """
-    BRIGHT_OFFSET = 60 if bright else 0
-    return f"\033[{color + BRIGHT_OFFSET:d}m{string}\033[m"
+    return scoringParameters.ScoringParameters()
 
 
-def get_user_input(prompt: str, exit_on_quit: bool = False) -> str:
-    """!Colored input wrapper
-
-    @param prompt Input prompt
-    """
-
-    ansi_blue = 34
-    ui = input(color_string(f"-> {prompt}", color=ansi_blue, bright=True))
-
-    if exit_on_quit:
-        try:
-            if ui.lower() in ("q", "quit", "exit"):
-                exit(0)
-        except Exception:
-            pass
-
-    return ui
+def get_next_filename(
+    dirpath: str, basename: str, file_ext: str, limit: int = 100
+) -> str:
+    """!Get the next available filename for a basename."""
+    if os.path.exists(os.path.join(dirpath, f"{basename}.{file_ext}")):
+        for i in range(1, limit):
+            if not os.path.exists(os.path.join(dirpath, f"{basename}_{i}.{file_ext}")):
+                basename = f"{basename}_{i}"
+                break
+    return os.path.join(dirpath, f"{basename}.{file_ext}")
 
 
 def write_removal_ranges_to_file(removal_ranges: dict, file_path: str):
@@ -648,34 +626,6 @@ def write_removal_ranges_to_file(removal_ranges: dict, file_path: str):
                         file.write(f"  {marker_name} Frames to Remove: None\n")
     else:
         json_utils.export_dict_as_json(removal_ranges, file_path)
-
-
-def ask_user_to_confirm_removals(max_tries: int = 5) -> bool:
-    """!Ask the user to confirm removals.
-
-    Exits if user enters 'q', 'quit', or 'exit', or if max_tries is reached.
-    """
-    ui = ""
-    i = 0
-    while ui.lower() not in ("y", "yes", "n", "no") and i < max_tries:
-        ui = get_user_input(
-            "Would you like to remove marker labels from the trial? (y/n): "
-        )
-        if ui.lower() in ("n", "no"):
-            return False
-        elif ui.lower() in ("y", "yes"):
-            return True
-        elif ui.lower() in ("q", "quit", "exit"):
-            LOGGER.info("Exit key pressed. Exiting.")
-            exit(0)
-        else:
-            LOGGER.warning("Invalid input. Please enter 'y' or 'n'.")
-
-        i += 1
-        if i == max_tries:
-            LOGGER.warning("Input limit reached. Continuing without removal.")
-
-    return False
 
 
 def remove_markers_from_online_trial(
@@ -734,11 +684,16 @@ def configure_parser():
 
     parser.add_argument(
         "-f",
-        "--force",
+        "--force_true",
         action="store_true",
-        help="Force continue through user prompts (i.e. continue after plotting, remove markers)",
+        help="Force continue through user prompts.",
     )
-
+    parser.add_argument(
+        "-p",
+        "--preserve_markers",
+        action="store_true",
+        help="Do not remove markers from the trial.",
+    )
     parser.add_argument(
         "-s",
         "--save_to_file",
@@ -777,8 +732,8 @@ def configure_parser():
     )
 
     parser.add_argument(
-        "-p",
-        "--project_dir",
+        "-pn",
+        "--project_name",
         type=str,
         default="",
         help="Path to the project directory. Must be provided if using 'offline' mode.",
@@ -870,6 +825,7 @@ def main():
 
     if args.verbose:
         LOGGER.setLevel(logging.DEBUG)
+        scorer.LOGGER.setLevel(logging.DEBUG)
 
     LOGGER.info("Running `unassign_rb_markers.py` ...")
     LOGGER.debug(args)
@@ -889,15 +845,18 @@ def main():
         vicon = ViconNexus.ViconNexus()
         project_dir, trial_fp, vsk_fp, subject_name = validate_online_args(args, vicon)
 
+    LOGGER.info(
+        "Project: {}, Trial: {}, VSK: {}".format(
+            *[os.path.basename(x) for x in [project_dir, trial_fp, vsk_fp]]
+        ),
+    )
     segments_only = args.segments_only
     residual_type = args.residual_type
 
     ## Load Data
-    scoring_params = load_scoring_config(args.scoring_name)
-    if "calib" in scoring_params or "prior" in scoring_params:
-        scoring_params = scoring_params[residual_type]
+    scoring_params = load_scoring_parameters(args.scoring_name)
 
-    LOGGER.debug(f"Scoring Params: {scoring_params}")
+    LOGGER.debug(f"Scoring Params: {scoring_params.model_dump_json()}")
 
     calibrated_rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(vsk_fp)
 
@@ -920,6 +879,10 @@ def main():
 
     ## Optional Plot of Residuals
     if args.plot_residuals:
+        agg_params = copy.deepcopy(scoring_params)
+        agg_params.preagg_thresholding = scoringParameters.PreAggTresholding(
+            segment=False, joint=False
+        )
         fig, ax = plot_residual_histories(
             calibrated_rigid_bodies,
             marker_trajectories,
@@ -927,13 +890,21 @@ def main():
             residual_type,
             segments_only,
             plot_frames=trial_frames[frames[0] : frames[-1] + 1],
+            agg_params=agg_params,
         )
         fig.show()
         LOGGER.info("Keep plot open to continue to see other plots.")
 
-        ui = get_user_input("Continue? (y/n): ", exit_on_quit=True)
-        if ui.lower() not in ("y", "yes"):
-            LOGGER.info("Exiting.")
+        if args.force_true:
+            ui = 0
+        else:
+            ui = hmi.get_user_input(
+                "Continue? (y/n): ",
+                exit_on_quit=True,
+                choices=[hmi.YES_KEYWORDS, hmi.NO_KEYWORDS],
+            )
+        if ui == 1:
+            LOGGER.info("Done.")
             exit(0)
 
     # Get Marker Removals
@@ -971,14 +942,21 @@ def main():
             start_frame=trial_frames[frames[0]],
         )
 
-    if any([args.plot_removals, args.plot_scores, args.plot_residuals]):
-        plt.show(block=offline)
-
     ## Remove Markers from Online Trial
-    if not offline and ask_user_to_confirm_removals(max_tries=5):
-        remove_markers_from_online_trial(
-            vicon, subject_name, removal_histories, calibrated_rigid_bodies, start
-        )
+    if not (offline or args.preserve_markers):
+        if args.force_true:
+            ui = 0
+        else:
+            ui = hmi.get_user_input(
+                "Remove markers from trial? (y/n): ",
+                exit_on_quit=True,
+                choices=[hmi.YES_KEYWORDS, hmi.NO_KEYWORDS],
+                num_tries=5,
+            )
+        if ui == 0:
+            remove_markers_from_online_trial(
+                vicon, subject_name, removal_histories, calibrated_rigid_bodies, start
+            )
 
     ## Write Removal Ranges to File
     if args.save_to_file:
@@ -991,11 +969,17 @@ def main():
                 start_end_list = [[l[i] + start, g[i] + start] for i in range(len(l))]
                 removal_ranges[rb_name][marker] = start_end_list
 
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
         file_ext = "txt" if args.output_file_type == "txt" else "json"
-        output_fp = os.path.join(project_dir, f"removals_{timestamp}.{file_ext}")
-        LOGGER.info("Writing removal ranges to file.")
+        tn = trial_fp.split(os.sep)[-1].split(".")[0]
+        output_fn = f"{tn}_removals"
+        output_fp = get_next_filename(project_dir, output_fn, file_ext)
         write_removal_ranges_to_file(removal_ranges, output_fp)
+        LOGGER.info(f"Removal ranges written to {output_fp}")
+
+    if any([args.plot_removals, args.plot_scores, args.plot_residuals]):
+        LOGGER.info("Plotting...")
+        block = offline or args.preserve_markers
+        plt.show(block=block)
 
     ## Cleanup
     LOGGER.info("Done!")
@@ -1009,24 +993,28 @@ def test_main_with_args():
     sys.argv = [
         "unassign_rb_markers.py",
         "-v",
-        # "-s",
+        "-s",
+        "-f",
+        "-p",
+        "--scoring_name",
+        "foot",
         # "--offline",
-        "--output_file_type",
-        "txt",
-        "--project_dir",
-        "shoe_stepping",
-        "--trial_name",
-        "trial01",
-        "--subject_name",
-        "subject",
+        # "--output_file_type",
+        # "txt",
+        # "--project_name",
+        # "shoe_stepping",
+        # "--trial_name",
+        # "trial01",
+        # "--subject_name",
+        # "subject",
         "--residual_type",
         "calib",
         "--segments_only",
         "--start_frame",
-        "5000",
+        "21000",
         "--end_frame",
-        "6000",
-        # "--plot_residuals",
+        "23000",
+        "--plot_residuals",
         "--plot_removals",
         "--plot_scores",
     ]
@@ -1035,5 +1023,6 @@ def test_main_with_args():
 
 
 if __name__ == "__main__":
-    # test_main_with_args()
-    main()
+    # print("d")
+    test_main_with_args()
+    # main()

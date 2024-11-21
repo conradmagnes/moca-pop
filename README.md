@@ -5,27 +5,51 @@ This repository contains python scripts for processing MoCap data.
 
 ## Installation
 
-Clone this repo and install it as a package using pip. Installing the package will also install its dependencies.
+This package was developed and tested using Python 3.11.9. It is recommended to use a virtual environment to manage dependencies.
+
+To create a virtual environment, run the following commands
 
 ```bash
+# create a virtual environment
+# If installing the venv in the mocap_popy directory, name the environment '.venv' so it is excluded from git.
+python -m venv <env_name> 
+
+# activate the virtual environment
+# for Windows
+.\<env_name>\Scripts\activate
+# for Unix or MacOS
+source <env_name>/bin/activate
+```
+
+To install this package, clone from git and install using pip (shown below). Installing the package will also install its dependencies.
+
+```bash
+# clone the repository
 git clone git@github.com:conradmagnes/mocap_popy.git
 
+# navigate to the repository and install the package
 cd mocap_popy
 python -m pip install .
 
-# to install in editable mode, use the following command
+# to install in editable mode, add the following flag
 python -m pip install -e .
-
-# to install optional test dependencies, use the following command
-python -m pip install .[test]
-# in zsh, escape the brackets using
-python -m pip install .\[test\]
 ```
 
 ### Additional Dependencies
 
-This library also requires the Vicon Nexus API, if running scripts in 'online' mode. The Vicon Nexus API is automatically downloaded with newer versions (>=2.12) of the Vicon Nexus software. Locate the library in Program Files (either Program or Program Files (x86)) under Vicon/Nexus<VerionNumber>/SDK/<OS>/Python. If using Windows, you can install the package by running the included `.bat` file (i.e. `install_viconnexusapi.bat`).
-Otherwise, navigate to the folder containing the package (i.e. viconnexusapi) and run `python -m pip install ./<package_name>`.
+This library also requires the Vicon Nexus API, if running scripts in 'online' mode. 
+The Vicon Nexus API is automatically downloaded with newer versions (>=2.12) of the Vicon Nexus software. 
+Locate the library in Program Files (either Program or Program Files (x86)) under Vicon/Nexus<VerionNumber>/SDK/<OS>/Python. 
+If using Windows, you can install the package by running the included `.bat` file (i.e. `install_viconnexusapi.bat`).
+Otherwise, navigate to the folder containing the package (i.e. viconnexusapi) and run `python -m pip install ./<package_name>`. 
+If using a virual environment, make sure to activate it before installing the package.
+
+### Vicon Nexus Configuration
+
+Python scripts can be run in Vicon Nexus using the 'Run Python Operation' pipeline operation (under 'Data Processing').
+Make sure the operation points to the correct python executable and the correct script file location. 
+If using a virtual environment, add the location of the virtual environment to the 'Environment activation' field (available in Vicon Nexus 2.16).
+Otherwise, make sure all dependencies are installed in the correct python environment.
 
 
 ## Repo Structure
