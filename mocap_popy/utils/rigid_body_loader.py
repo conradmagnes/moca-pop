@@ -16,7 +16,9 @@ from mocap_popy.utils import vsk_parser, model_template_loader, plot_utils
 LOGGER = logging.getLogger("RigidBodyLoader")
 
 
-def get_rigid_bodies_from_vsk(vsk_fp: str) -> dict[str, RigidBody]:
+def get_rigid_bodies_from_vsk(
+    vsk_fp: str, ignore_marker_symmetry: bool = False
+) -> dict[str, RigidBody]:
     """!Returns a dictionary of rigid bodies from a VSK file.
 
     Rigid bodies must have a corresponding json template.
@@ -42,10 +44,13 @@ def get_rigid_bodies_from_vsk(vsk_fp: str) -> dict[str, RigidBody]:
             LOGGER.error(f"No json template found for body {body}.")
             continue
 
-        body_template.add_symmetry_prefix(side)
+        body_template.name = body
+        if not ignore_marker_symmetry:
+            body_template.add_symmetry_prefix(side)
         if body in markers_positions:
             pos = body_template.convert_vsk_marker_positions(markers_positions[body])
-            nodes = [Node(marker, pos) for marker, pos in pos.items()]
+            nodes = [Node(name, p) for name, p in pos.items()]
+
         else:
             LOGGER.warning(f"Body {body} not found in VSK markers positions.")
             nodes = None

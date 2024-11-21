@@ -63,8 +63,7 @@ class RigidBodyTemplate(BaseTemplate):
         return self
 
     def add_symmetry_prefix(self, side: str):
-        """!Add a symmetry prefix to the name, markers and segments in the template."""
-        self.name = f"{side}_{self.name}"
+        """!Add a symmetry prefix to the markers and segments in the template."""
         self.markers = [f"{side}_{marker}" for marker in self.markers]
 
         sided_segments = []

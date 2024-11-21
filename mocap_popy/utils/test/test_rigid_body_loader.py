@@ -18,7 +18,9 @@ LOGGER = logging.getLogger("TestRigidBodyLoader")
 
 vsk_fp = os.path.join(DATASET_DIR, f"{SUBJECT_NAME}.vsk")
 
-rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(vsk_fp)
+rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(
+    vsk_fp, ignore_marker_symmetry=True
+)
 
 plane = "xy"
 colors = ["b", "r"]

@@ -33,21 +33,34 @@ import numpy as np
 import plotly.graph_objs as go
 
 import mocap_popy.config.directory as directory
+import mocap_popy.config.regex as regex
 from mocap_popy.models.rigid_body import Node, Segment, Joint
 from mocap_popy.utils import rigid_body_loader
+from mocap_popy.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
 
 
 project_dir = os.path.join(directory.DATASET_DIR, "shoe_stepping")
 vsk_fp = os.path.join(project_dir, "subject.vsk")
-calibrated_rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(vsk_fp)
+
+ignore_symmetry = True
+calibrated_rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(
+    vsk_fp, ignore_marker_symmetry=ignore_symmetry
+)
 
 rb_name = "Right_Foot"
-nodes_to_vis = ["Right_TM", "Right_TL", "Right_TF"]
 
 calibrated_body = calibrated_rigid_bodies[rb_name]
 calibrated_body.compute_segment_lengths()
 calibrated_body.compute_joint_angles()
 active_body = copy.deepcopy(calibrated_body)
+
+scoring_params = scoringParameters.ScoringParameters()
+if ignore_symmetry and isinstance(scoring_params.removal_threshold, dict):
+    scoring_params.removal_threshold = {
+        regex.parse_symmetrical_component(k)[1]: v
+        for k, v in scoring_params.removal_threshold.items()
+    }
+
 
 # Initial Node Positions
 initial_positions = {m.marker: m.position for m in calibrated_body.nodes}
@@ -60,6 +73,25 @@ slider_params = {
     "marks": None,
     "tooltip": {"placement": "top"},
 }
+slider_style = {"width": "100%", "height": "100%"}
+
+
+def get_slider(
+    name: str, slider_params, slider_style: dict = None, div_style: dict = None
+):
+    ss = slider_style or {}
+    ds = div_style or {}
+    slider_id = f"slider-{'-'.join(name.lower().split(' '))}"
+    return html.Div(
+        [
+            html.Label(f"{name}:"),
+            html.Div(
+                [dcc.Slider(id=slider_id, **slider_params)],
+                style=slider_style,
+            ),
+        ],
+        style=div_style,
+    )
 
 
 def get_scene_limits(positions, slider_params):
@@ -74,48 +106,115 @@ def get_scene_limits(positions, slider_params):
 
 scene_limits = get_scene_limits(initial_positions, slider_params)
 
+browser_margin = 8
+
+
+def subtract_browser_margin(value: str, browser_margin: int = 8, num_margins: int = 1):
+    """! Get the relative view dimension based on the anchor and browser margin"""
+    return f"calc({value} - {browser_margin * num_margins}px)"
+
+
+def add_browser_margin(value: str, browser_margin: int = 8, num_margins: int = 1):
+    """! Get the relative view dimension based on the anchor and browser margin"""
+    return f"calc({value} + {browser_margin * num_margins}px)"
+
+
 # Initialize the Dash app
 app = dash.Dash(__name__, suppress_callback_exceptions=True)
+
+outline_border = {"border": "1px solid black"}
+standard_padding = {
+    "box-sizing": "border-box",
+    "padding-top": "1vh",
+    "padding-right": "1vh",
+    "padding-bottom": "1vh",
+    "padding-left": "1vh",
+}
+
+graph_style = {
+    "position": "absolute",
+    "height": "70vh",
+    "width": "50vw",
+    "left": "25vw",
+    "box-sizing": "border-box",
+    **outline_border,
+}
+left_panel_style = {
+    "position": "absolute",
+    "height": subtract_browser_margin("100vh", num_margins=2),
+    "width": subtract_browser_margin("25vw"),
+    **standard_padding,
+    **outline_border,
+}
+slider_panel_style = {
+    "position": "absolute",
+    "top": add_browser_margin("70vh"),
+    "left": "25vw",
+    "width": "50vw",
+    "height": subtract_browser_margin("30vh", num_margins=2),
+    **standard_padding,
+    **outline_border,
+}
+slider_panel_label = "Set Offsets"
+
+reset_button_style = {
+    "position": "absolute",
+    "height": "20%",
+    "width": "30%",
+}
+
+NODE_OFFSET_DIV = html.Div(
+    [
+        html.Label(id="slider-label", children=slider_panel_label),
+        html.Div(
+            [
+                get_slider("X", slider_params, slider_style),
+                get_slider("Y", slider_params, slider_style),
+                get_slider("Z", slider_params, slider_style),
+            ],
+            style={
+                "height": "50%",
+                "width": "50%",
+                "left": "50%",
+                "position": "absolute",
+            },
+        ),
+        html.Button(
+            "Reset",
+            id="reset-button",
+            n_clicks=0,
+            style={
+                "top": "25%",
+                "left": "10%",
+                **reset_button_style,
+            },
+        ),
+        html.Button(
+            "Reset All",
+            id="reset-all-button",
+            n_clicks=0,
+            style={"top": "60%", "left": "10%", **reset_button_style},
+        ),
+    ],
+    style=slider_panel_style,
+)
+
 
 # Layout of the App
 app.layout = html.Div(
     [
-        dcc.Graph(id="3d-plot", style={"height": "70vh"}),
+        html.Div(id="connected-info", style=left_panel_style),
+        dcc.Graph(
+            id="3d-plot",
+            style=graph_style,
+        ),
+        NODE_OFFSET_DIV,
         dcc.Store(id="node-positions", data=initial_positions),
         dcc.Store(id="selected-node", data=active_body.get_markers()[0]),
         dcc.Store(
             id="node-offsets", data={node: [0, 0, 0] for node in initial_positions}
         ),
-        html.Div(
-            [
-                html.Label(id="slider-label", children="Move Node A:"),
-                html.Div(
-                    [
-                        html.Label("X:"),
-                        dcc.Slider(id="slider-x", **slider_params),
-                    ]
-                ),
-                html.Div(
-                    [
-                        html.Label("Y:"),
-                        dcc.Slider(id="slider-y", **slider_params),
-                    ]
-                ),
-                html.Div(
-                    [
-                        html.Label("Z:"),
-                        dcc.Slider(id="slider-z", **slider_params),
-                    ]
-                ),
-                html.Button(
-                    "Reset", id="reset-button", n_clicks=0
-                ),  # Reset button for current node
-                html.Button(
-                    "Reset All", id="reset-all-button", n_clicks=0
-                ),  # Reset all nodes button
-            ]
-        ),
-        html.Div(id="connected-info"),  # Display connected segments and joints
+        dcc.Store(id="max-score", data=0.0),
     ]
 )
 
@@ -150,6 +249,8 @@ def update_graph(node_positions):
             z=[seg.nodes[0].position[2], seg.nodes[1].position[2]],
             mode="lines",
             line=dict(color="black", width=2),
+            hoverinfo="skip",
+            hovertemplate=None,
         )
         segment_traces.append(segment_trace)
 
@@ -161,6 +262,7 @@ def update_graph(node_positions):
         margin=dict(l=0, r=0, b=0, t=0),
         scene={"aspectmode": "cube", **scene_limits},
         uirevision="same",
+        showlegend=False,
     )
 
     return go.Figure(data=data, layout=layout)
@@ -202,16 +304,16 @@ def update_sliders(selected_node, reset_clicks, reset_all_clicks, node_offsets):
         if trigger == "reset-button":
             # Reset only the selected node
             node_offsets[selected_node] = [0, 0, 0]
-            return 0, 0, 0, f"Move Node {selected_node}:"
+            return 0, 0, 0, f"{slider_panel_label}: {selected_node}"
         elif trigger == "reset-all-button":
             # Reset all nodes
             for node in node_offsets:
                 node_offsets[node] = [0, 0, 0]
-            return 0, 0, 0, f"Move Node {selected_node}:"
+            return 0, 0, 0, f"{slider_panel_label}: {selected_node}"
 
     # Otherwise, use the stored offset for the selected node
     offset_x, offset_y, offset_z = node_offsets[selected_node]
-    return offset_x, offset_y, offset_z, f"Move Node {selected_node}:"
+    return offset_x, offset_y, offset_z, f"{slider_panel_label}: {selected_node}"
 
 
 # Combined Callback to update node positions, offsets, and handle "Reset All" functionality
@@ -272,7 +374,7 @@ def update_node_positions_and_offsets(
 
 # Callback to display connected segments and joints
 @app.callback(
-    Output("connected-info", "children"),
+    [Output("connected-info", "children"), Output("max-score", "data")],
     [
         Input("selected-node", "data"),
         Input("slider-x", "value"),
@@ -280,9 +382,10 @@ def update_node_positions_and_offsets(
         Input("slider-z", "value"),
         Input("reset-all-button", "n_clicks"),
     ],
+    State("max-score", "data"),
 )
 def update_connected_info(
-    selected_node, slider_x, slider_y, slider_z, reset_all_clicks
+    selected_node, slider_x, slider_y, slider_z, reset_all_clicks, max_score
 ):
     # Get connected segments and joints
     connected_segments = active_body.get_connected_segments(selected_node)
@@ -290,20 +393,149 @@ def update_connected_info(
         seg.compute_length()
         seg.compute_residuals(calibrated_body)
 
-    connected_segments_info = [
-        f"Segment {seg}: length={seg.length:.2f}, residual={seg.residual_calib:.2f}"
-        for seg in connected_segments
-    ]
+    connected_joints = active_body.get_connected_joints(selected_node)
+    for joint in connected_joints:
+        joint.compute_angle()
+        joint.compute_residuals(calibrated_body)
 
-    # Combine all the connected information
-    connected_info = html.Div(
-        [
-            html.H4(f"Connected Segments and Joints for Node {selected_node}:"),
-            html.Ul([html.Li(info) for info in connected_segments_info]),
-        ]
+    agg_segment = active_body.get_aggregate_segment_residuals(
+        selected_node,
+        ["residual_calib"],
+        scoring_params.aggregation_method.segment,
+        (not scoring_params.preagg_thresholding.segment),
+    )
+    agg_joint = active_body.get_aggregate_joint_residuals(
+        selected_node,
+        ["residual_calib"],
+        scoring_params.aggregation_method.joint,
+        (not scoring_params.preagg_thresholding.joint),
     )
 
-    return connected_info
+    raw_score = (
+        scoring_params.aggregation_weight.segment * agg_segment
+        + scoring_params.aggregation_weight.joint * agg_joint
+    )
+    threshold = scoring_params.removal_threshold
+    if (
+        isinstance(threshold, dict)
+        and selected_node in scoring_params.removal_threshold
+    ):
+        threshold = scoring_params.removal_threshold[selected_node]
+
+    score = max(0, raw_score - threshold)
+    if score > max_score:
+        max_score = score
+
+    connected_segment_header = html.Tr(
+        [
+            html.Th("Segment", style={"text-align": "left"}),
+            html.Th("L (mm)", style={"text-align": "right"}),
+            html.Th("Tol", style={"text-align": "right"}),
+            html.Th("Res", style={"text-align": "right"}),
+        ]
+    )
+    connected_segments_rows = [
+        html.Tr(
+            [
+                html.Td(str(seg)),
+                html.Td(f"{seg.length:.1f}", style={"text-align": "right"}),
+                html.Td(f"{seg.tolerance:.2f}", style={"text-align": "right"}),
+                html.Td(f"{seg.residual_calib:.1f}", style={"text-align": "right"}),
+            ]
+        )
+        for seg in connected_segments
+    ]
+    connected_segments_rows.append(
+        html.Tr(
+            [
+                html.Th("Aggregated", style={"text-align": "right"}),
+                html.Td(""),
+                html.Td(""),
+                html.Td(
+                    f"{agg_segment:.1f}",
+                    style={"text-align": "right", "font-weight": "bold"},
+                ),
+            ]
+        )
+    )
+
+    # Construct table rows for connected joints
+    connected_joint_header = html.Tr(
+        [
+            html.Th("Name", style={"text-align": "left"}),
+            html.Th("Ang (deg)", style={"text-align": "right"}),
+            html.Th("Tol", style={"text-align": "right"}),
+            html.Th("Res", style={"text-align": "right"}),
+        ]
+    )
+    connected_joints_rows = [
+        html.Tr(
+            [
+                html.Td(str(joint)),
+                html.Td(f"{joint.angle:.0f}", style={"text-align": "right"}),
+                html.Td(f"{joint.tolerance:.0f}", style={"text-align": "right"}),
+                html.Td(f"{joint.residual_calib:.1f}", style={"text-align": "right"}),
+            ]
+        )
+        for joint in connected_joints
+    ]
+    connected_joints_rows.append(
+        html.Tr(
+            [
+                html.Th("Aggregated", style={"text-align": "right"}),
+                html.Td(""),
+                html.Td(""),
+                html.Td(
+                    f"{agg_joint:.1f}",
+                    style={"text-align": "right", "font-weight": "bold"},
+                ),
+            ]
+        )
+    )
+
+    # Create scrollable tables for segments and joints
+    connected_info = html.Div(
+        [
+            html.H2(f"Selected Node: {selected_node}"),
+            html.H4("Connected Segments:"),
+            html.Div(
+                html.Table(
+                    [
+                        html.Thead(connected_segment_header),
+                        html.Tbody(connected_segments_rows),
+                    ],
+                    style={"width": "100%"},
+                ),
+                style={
+                    "height": "150px",  # Set a fixed height for scrolling
+                    "overflow-y": "auto",  # Enable vertical scrolling when content exceeds height
+                    "border": "1px solid black",  # Border for visibility
+                    "margin-bottom": "20px",  # Space below the table
+                },
+            ),
+            html.H4("Connected Joints:"),
+            html.Div(
+                html.Table(
+                    [
+                        html.Thead(connected_joint_header),
+                        html.Tbody(connected_joints_rows),
+                    ],
+                    style={"width": "100%"},
+                ),
+                style={
+                    "height": "200px",  # Set a fixed height for scrolling
+                    "overflow-y": "auto",  # Enable vertical scrolling when content exceeds height
+                    "border": "1px solid black",  # Border for visibility
+                    "margin-bottom": "20px",  # Space below the table
+                },
+            ),
+            html.H4(f"Raw score: {raw_score:.1f}  |   Threshold: {threshold:.1f}"),
+            html.H3(f"Score: {score:.1f}"),
+            html.H3(f"Max Score: {max_score:.1f}"),
+        ],
+    )
+
+    return connected_info, max_score
 
 
 if __name__ == "__main__":
