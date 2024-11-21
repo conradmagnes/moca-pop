@@ -20,6 +20,7 @@ If no item is present for a given section, have it say None.
 - Renamed and update `rigid_body_scorer.py` to `scorer.py` and moved to `mocap_popy/scripts/unassign_rb_markers/scoring`
   - Fixed duplicate scoring issue during sort task in `scorer.py` (include/exclude arg)
   - deprecated component-level thresholds before aggregation
+  - fixed generation of prior residual histories in `scorer.py`
 - Updated `unassign_rb_markers.py` to use `scorer.py` and `scoringParameters.py`
 
 ### Removed
