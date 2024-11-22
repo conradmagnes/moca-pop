@@ -40,6 +40,12 @@ from mocap_popy.utils import rigid_body_loader
 from mocap_popy.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
 
 
+CALIBRATED_COLOR = "gray"
+
+WITHIN_THRESHOLD_COLOR = "black"
+EXCEED_THRESHOLD_COLOR = "red"
+
+
 project_dir = os.path.join(directory.DATASET_DIR, "shoe_stepping")
 vsk_fp = os.path.join(project_dir, "subject.vsk")
 
@@ -70,7 +76,13 @@ if ignore_symmetry:
         }
 
 # Initial Node Positions
+node_scores = {m: 0 for m in active_body.get_markers()}
 initial_positions = {m.marker: m.position for m in calibrated_body.nodes}
+active_marker_colors = {m.marker: WITHIN_THRESHOLD_COLOR for m in active_body.nodes}
+active_segment_colors = {
+    str(s): WITHIN_THRESHOLD_COLOR if s.residual_calib > 0 else EXCEED_THRESHOLD_COLOR
+    for s in active_body.segments
+}
 
 slider_params = {
     "min": -100,
@@ -419,50 +431,112 @@ app.layout = html.Div(
         dcc.Store(
             id="node-offsets", data={node: [0, 0, 0] for node in initial_positions}
         ),
+        dcc.Store(id="node-scores", data=node_scores),
         dcc.Store(id="max-score", data=0.0),
         dcc.Store(id="scoring-params", data=scoring_params.model_dump_json()),
         dcc.Store(id="removal-threshold-all", data=removal_threshold_all),
+        dcc.Store(id="active-marker-colors", data=active_marker_colors),
+        dcc.Store(id="active-segment-colors", data=active_segment_colors),
     ]
 )
+
+
+def generate_node_trace(
+    body,
+    node_scores,
+    mode,
+    marker_args,
+    text_position="top center",
+    body_type="calibrated",
+):
+    exisiting_nodes = [n for n in body.nodes if n.exists]
+    exisiting_node_scores = [node_scores[n.marker] for n in exisiting_nodes]
+    if body_type == "calibrated":
+        margs = marker_args.copy()
+    else:
+        colors = [
+            EXCEED_THRESHOLD_COLOR if s > 0 else WITHIN_THRESHOLD_COLOR
+            for s in exisiting_node_scores
+        ]
+        margs = {**marker_args, "color": colors}
+
+    return go.Scatter3d(
+        x=[n.position[0] for n in body.nodes],
+        y=[n.position[1] for n in body.nodes],
+        z=[n.position[2] for n in body.nodes],
+        mode=mode,
+        marker=margs,
+        text=body.get_markers(),
+        textposition=text_position,
+    )
+
+
+def generate_segment_traces(body, line_args, body_type="calibrated"):
+    traces = []
+    for seg in body.segments:
+        if body_type == "calibrated":
+            color = CALIBRATED_COLOR
+        else:
+            color = (
+                EXCEED_THRESHOLD_COLOR
+                if abs(seg.residual_calib) > seg.tolerance
+                else WITHIN_THRESHOLD_COLOR
+            )
+
+        t = go.Scatter3d(
+            x=[seg.nodes[0].position[0], seg.nodes[1].position[0]],
+            y=[seg.nodes[0].position[1], seg.nodes[1].position[1]],
+            z=[seg.nodes[0].position[2], seg.nodes[1].position[2]],
+            mode="lines",
+            line={**line_args, "color": color},
+            # line=line_args,
+            hoverinfo="skip",
+            hovertemplate=None,
+        )
+        traces.append(t)
+
+    return traces
 
 
 # Callback to update the 3D plot
 @app.callback(
     Output("3d-plot", "figure"),
-    Input("node-positions", "data"),
+    [Input("node-positions", "data"), Input("node-scores", "data")],
 )
-def update_graph(node_positions):
+def update_graph(node_positions, node_scores):
     # Update node positions
     for marker, position in node_positions.items():
         active_body.get_node(marker).position = np.array(position)
 
     # Create traces for nodes
-    node_trace = go.Scatter3d(
-        x=[n.position[0] for n in active_body.nodes],
-        y=[n.position[1] for n in active_body.nodes],
-        z=[n.position[2] for n in active_body.nodes],
-        mode="markers+text",
-        marker=dict(size=8, color="red"),
-        text=active_body.get_markers(),
-        textposition="top center",
+    calib_node_trace = generate_node_trace(
+        calibrated_body,
+        node_scores,
+        "markers",
+        dict(size=5, color=CALIBRATED_COLOR),
+    )
+    active_node_trace = generate_node_trace(
+        active_body,
+        node_scores,
+        "markers+text",
+        dict(size=7, color="black"),
+        body_type="active",
     )
 
     # Create traces for segments
-    segment_traces = []
-    for seg in active_body.segments:
-        segment_trace = go.Scatter3d(
-            x=[seg.nodes[0].position[0], seg.nodes[1].position[0]],
-            y=[seg.nodes[0].position[1], seg.nodes[1].position[1]],
-            z=[seg.nodes[0].position[2], seg.nodes[1].position[2]],
-            mode="lines",
-            line=dict(color="black", width=2),
-            hoverinfo="skip",
-            hovertemplate=None,
-        )
-        segment_traces.append(segment_trace)
-
+    calib_segment_traces = generate_segment_traces(
+        calibrated_body, dict(color="gray", width=1)
+    )
+    active_segment_traces = generate_segment_traces(
+        active_body, dict(color="black", width=2), body_type="active"
+    )
     # Combine traces
-    data = [node_trace] + segment_traces
+    data = (
+        [calib_node_trace]
+        + calib_segment_traces
+        + [active_node_trace]
+        + active_segment_traces
+    )
 
     # Layout for 3D plot
     layout = go.Layout(
@@ -581,7 +655,11 @@ def update_node_positions_and_offsets(
 
 # Callback to display connected segments and joints
 @app.callback(
-    [Output("connected-info", "children"), Output("max-score", "data")],
+    [
+        Output("connected-info", "children"),
+        Output("node-scores", "data"),
+        Output("max-score", "data"),
+    ],
     [
         Input("selected-node", "data"),
         Input("slider-x", "value"),
@@ -592,6 +670,7 @@ def update_node_positions_and_offsets(
         Input("scoring-params", "data"),
     ],
     State("scoring-params", "data"),
+    State("node-scores", "data"),
     State("max-score", "data"),
 )
 def update_connected_info(
@@ -603,6 +682,7 @@ def update_connected_info(
     update_clicks,
     scoring_params_input,
     scoring_params_state,
+    node_scores,
     max_score,
 ):
     scoring_params = scoringParameters.ScoringParameters.model_validate_json(
@@ -646,6 +726,8 @@ def update_connected_info(
     score = max(0, raw_score - threshold)
     if score > max_score:
         max_score = score
+
+    node_scores[selected_node] = score
 
     connected_segment_header = html.Tr(
         [
@@ -756,7 +838,7 @@ def update_connected_info(
         ],
     )
 
-    return connected_info, max_score
+    return connected_info, node_scores, max_score
 
 
 @app.callback(
