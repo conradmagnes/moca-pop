@@ -9,7 +9,7 @@
 
 from typing import Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class PreAggTresholding(BaseModel):
@@ -59,10 +59,35 @@ class ScoringParameters(BaseModel):
         default_factory=AggregationWeight,
     )
     removal_threshold: Union[float, dict[str, float]] = Field(
-        0.0, description="Threshold for removing markers from rigid body."
+        default=0.0, description="Threshold for removing markers from rigid body."
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_removal_threshold(cls, values):
+        """Validate and adjust the removal_threshold before the model is created."""
+        removal_threshold = values.get("removal_threshold")
+
+        if isinstance(removal_threshold, dict):
+            return values
+
+        elif isinstance(removal_threshold, float):
+            return values
+
+        values["removal_threshold"] = 0.0
+        return values
+
+    def serialize_removal_threshold(self):
+        """Custom serialization for removal_threshold attribute."""
+        if isinstance(self.removal_threshold, dict):
+            return {key: float(value) for key, value in self.removal_threshold.items()}
+        return float(self.removal_threshold)
 
 
 if __name__ == "__main__":
-    sp = ScoringParameters()
+    sp = ScoringParameters(removal_threshold=0.1)
+    print(sp.model_dump_json())
+    sp.removal_threshold = 0.5
+    print(sp.model_dump_json())
+    sp.removal_threshold = {"m1": 0.1, "m2": 0.2}
     print(sp.model_dump_json())

@@ -28,6 +28,7 @@ from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import copy
 import os
+import json
 
 import numpy as np
 import plotly.graph_objs as go
@@ -55,12 +56,18 @@ calibrated_body.compute_joint_angles()
 active_body = copy.deepcopy(calibrated_body)
 
 scoring_params = scoringParameters.ScoringParameters()
-if ignore_symmetry and isinstance(scoring_params.removal_threshold, dict):
-    scoring_params.removal_threshold = {
-        regex.parse_symmetrical_component(k)[1]: v
-        for k, v in scoring_params.removal_threshold.items()
-    }
-
+if ignore_symmetry:
+    if isinstance(scoring_params.removal_threshold, dict):
+        scoring_params.removal_threshold = {
+            regex.parse_symmetrical_component(k)[1]: v
+            for k, v in scoring_params.removal_threshold.items()
+        }
+        removal_threshold_all = 0
+    else:
+        removal_threshold_all = scoring_params.removal_threshold
+        scoring_params.removal_threshold = {
+            m: scoring_params.removal_threshold for m in calibrated_body.get_markers()
+        }
 
 # Initial Node Positions
 initial_positions = {m.marker: m.position for m in calibrated_body.nodes}
@@ -146,6 +153,10 @@ left_panel_style = {
     **standard_padding,
     **outline_border,
 }
+right_panel_style = {
+    **left_panel_style,
+    "left": "75vw",
+}
 slider_panel_style = {
     "position": "absolute",
     "top": add_browser_margin("70vh"),
@@ -199,6 +210,199 @@ NODE_OFFSET_DIV = html.Div(
     style=slider_panel_style,
 )
 
+SCORING_DIV = html.Div(
+    [
+        html.H2("Scoring Parameters"),
+        # PreAggThresholding Section
+        html.Div(
+            [
+                html.H4("Pre-Aggregation Thresholding", style={"margin-bottom": "2vh"}),
+                html.Div(
+                    [
+                        html.Label("Segment:"),
+                        dcc.RadioItems(
+                            id="preagg-segment",
+                            options=[
+                                {"label": "True", "value": True},
+                                {"label": "False", "value": False},
+                            ],
+                            value=scoring_params.preagg_thresholding.segment,
+                            labelStyle={
+                                "display": "inline-block",
+                                "margin-right": "10px",
+                            },
+                        ),
+                    ],
+                    style={"width": "50%", "position": "absolute"},
+                ),
+                html.Div(
+                    [
+                        html.Label("Joint:"),
+                        dcc.RadioItems(
+                            id="preagg-joint",
+                            options=[
+                                {"label": "True", "value": True},
+                                {"label": "False", "value": False},
+                            ],
+                            value=scoring_params.preagg_thresholding.joint,
+                            labelStyle={
+                                "display": "inline-block",
+                                "margin-right": "10px",
+                            },
+                        ),
+                    ],
+                    style={"width": "50%", "position": "absolute", "left": "50%"},
+                ),
+            ],
+            style={"position": "relative", "height": "10vh"},
+        ),
+        # AggregationMethod Section
+        html.Div(
+            [
+                html.H4("Aggregation Method", style={"margin-bottom": "2vh"}),
+                html.Div(
+                    [
+                        html.Label("Segment:"),
+                        dcc.Dropdown(
+                            id="agg-method-segment",
+                            options=[
+                                {"label": "Mean", "value": "mean"},
+                                {"label": "Sum", "value": "sum"},
+                            ],
+                            value=scoring_params.aggregation_method.segment,
+                            clearable=False,
+                            style={"width": "80%"},
+                        ),
+                    ],
+                    style={"width": "50%", "position": "absolute"},
+                ),
+                html.Div(
+                    [
+                        html.Label("Joint:"),
+                        dcc.Dropdown(
+                            id="agg-method-joint",
+                            options=[
+                                {"label": "Mean", "value": "mean"},
+                                {"label": "Sum", "value": "sum"},
+                            ],
+                            value=scoring_params.aggregation_method.joint,
+                            clearable=False,
+                            style={"width": "80%"},
+                        ),
+                    ],
+                    style={"width": "50%", "position": "absolute", "left": "50%"},
+                ),
+            ],
+            style={"position": "relative", "height": "12vh"},
+        ),
+        # AggregationWeight Section
+        html.Div(
+            [
+                html.H4("Aggregation Weight", style={"margin-bottom": "2vh"}),
+                html.Div(
+                    [
+                        html.Label("Segment:"),
+                        dcc.Input(
+                            id="agg-weight-segment",
+                            type="number",
+                            value=scoring_params.aggregation_weight.segment,
+                            style={
+                                "width": "80%",
+                                "text-align": "right",
+                                "font-size": "1em",
+                            },
+                        ),
+                    ],
+                    style={"position": "absolute", "width": "50%"},
+                ),
+                html.Div(
+                    [
+                        html.Label("Joint:"),
+                        dcc.Input(
+                            id="agg-weight-joint",
+                            type="number",
+                            value=scoring_params.aggregation_weight.joint,
+                            style={
+                                "width": "80%",
+                                "text-align": "right",
+                                "font-size": "1em",
+                            },
+                        ),
+                    ],
+                    style={"position": "absolute", "left": "50%", "width": "50%"},
+                ),
+            ],
+            style={"position": "relative", "height": "12vh"},
+        ),
+        # Removal Threshold Section
+        html.Div(
+            [
+                html.H4("Removal Threshold", style={"margin-bottom": "2vh"}),
+                html.Div(
+                    [
+                        html.Label("Select Threshold:", style={"width": "50%"}),
+                        dcc.Dropdown(
+                            id="removal-threshold-type",
+                            options=[
+                                {"label": "All", "value": "all"},
+                                *[
+                                    {"label": m, "value": m}
+                                    for m in active_body.get_markers()
+                                ],
+                            ],
+                            value="all",
+                            clearable=False,
+                            style={"width": "50%"},
+                        ),
+                    ],
+                    style={
+                        "position": "relative",
+                        "width": "100%",
+                        "display": "flex",
+                        "margin-bottom": "1vh",
+                    },
+                ),
+                html.Div(
+                    [
+                        html.Label(
+                            id="removal-threshold-label",
+                            children="Threshold for All:",
+                            style={"width": "50%"},
+                        ),
+                        dcc.Input(
+                            id="removal-threshold-value",
+                            type="number",
+                            value=removal_threshold_all,
+                            style={
+                                "width": "40%",
+                                "text-align": "right",
+                                "font-size": "1em",
+                            },
+                        ),
+                    ],
+                    style={"position": "relative", "width": "100%", "display": "flex"},
+                ),
+            ],
+            style={"position": "relative", "height": "18vh"},
+        ),
+        # Button to submit and update scoring parameters
+        html.Button(
+            "Update",
+            id="update-button",
+            n_clicks=0,
+            style={
+                "width": "40%",
+                "height": "6%",
+                "position": "relative",
+                "left": "30%",
+            },
+        ),
+        # Output for displaying updated values
+        html.Div(id="output-info", style={"margin-top": "20px"}),
+    ],
+    style=right_panel_style,
+)
+
 
 # Layout of the App
 app.layout = html.Div(
@@ -209,12 +413,15 @@ app.layout = html.Div(
             style=graph_style,
         ),
         NODE_OFFSET_DIV,
+        SCORING_DIV,
         dcc.Store(id="node-positions", data=initial_positions),
         dcc.Store(id="selected-node", data=active_body.get_markers()[0]),
         dcc.Store(
             id="node-offsets", data={node: [0, 0, 0] for node in initial_positions}
         ),
         dcc.Store(id="max-score", data=0.0),
+        dcc.Store(id="scoring-params", data=scoring_params.model_dump_json()),
+        dcc.Store(id="removal-threshold-all", data=removal_threshold_all),
     ]
 )
 
@@ -381,12 +588,26 @@ def update_node_positions_and_offsets(
         Input("slider-y", "value"),
         Input("slider-z", "value"),
         Input("reset-all-button", "n_clicks"),
+        Input("update-button", "n_clicks"),
+        Input("scoring-params", "data"),
     ],
+    State("scoring-params", "data"),
     State("max-score", "data"),
 )
 def update_connected_info(
-    selected_node, slider_x, slider_y, slider_z, reset_all_clicks, max_score
+    selected_node,
+    slider_x,
+    slider_y,
+    slider_z,
+    reset_all_clicks,
+    update_clicks,
+    scoring_params_input,
+    scoring_params_state,
+    max_score,
 ):
+    scoring_params = scoringParameters.ScoringParameters.model_validate_json(
+        scoring_params_state
+    )
     # Get connected segments and joints
     connected_segments = active_body.get_connected_segments(selected_node)
     for seg in connected_segments:
@@ -401,13 +622,13 @@ def update_connected_info(
     agg_segment = active_body.get_aggregate_segment_residuals(
         selected_node,
         ["residual_calib"],
-        scoring_params.aggregation_method.segment,
+        (scoring_params.aggregation_method.segment == "mean"),
         (not scoring_params.preagg_thresholding.segment),
     )
     agg_joint = active_body.get_aggregate_joint_residuals(
         selected_node,
         ["residual_calib"],
-        scoring_params.aggregation_method.joint,
+        (scoring_params.aggregation_method.joint, "mean"),
         (not scoring_params.preagg_thresholding.joint),
     )
 
@@ -440,7 +661,7 @@ def update_connected_info(
                 html.Td(str(seg)),
                 html.Td(f"{seg.length:.1f}", style={"text-align": "right"}),
                 html.Td(f"{seg.tolerance:.2f}", style={"text-align": "right"}),
-                html.Td(f"{seg.residual_calib:.1f}", style={"text-align": "right"}),
+                html.Td(f"{seg.residual_calib:.2f}", style={"text-align": "right"}),
             ]
         )
         for seg in connected_segments
@@ -452,7 +673,7 @@ def update_connected_info(
                 html.Td(""),
                 html.Td(""),
                 html.Td(
-                    f"{agg_segment:.1f}",
+                    f"{agg_segment:.2f}",
                     style={"text-align": "right", "font-weight": "bold"},
                 ),
             ]
@@ -507,7 +728,7 @@ def update_connected_info(
                     style={"width": "100%"},
                 ),
                 style={
-                    "height": "150px",  # Set a fixed height for scrolling
+                    "height": "22vh",  # Set a fixed height for scrolling
                     "overflow-y": "auto",  # Enable vertical scrolling when content exceeds height
                     "border": "1px solid black",  # Border for visibility
                     "margin-bottom": "20px",  # Space below the table
@@ -523,7 +744,7 @@ def update_connected_info(
                     style={"width": "100%"},
                 ),
                 style={
-                    "height": "200px",  # Set a fixed height for scrolling
+                    "height": "26vh",  # Set a fixed height for scrolling
                     "overflow-y": "auto",  # Enable vertical scrolling when content exceeds height
                     "border": "1px solid black",  # Border for visibility
                     "margin-bottom": "20px",  # Space below the table
@@ -536,6 +757,78 @@ def update_connected_info(
     )
 
     return connected_info, max_score
+
+
+@app.callback(
+    Output("removal-threshold-label", "children"),
+    Input("removal-threshold-type", "value"),
+)
+def update_removal_threshold_label(removal_threshold_type: str):
+    return f"Threshold for {removal_threshold_type}:"
+
+
+# Callback to update scoring parameters based on input fields
+@app.callback(
+    Output("scoring-params", "data"),
+    [Input("update-button", "n_clicks")],
+    [
+        State("preagg-segment", "value"),
+        State("preagg-joint", "value"),
+        State("agg-method-segment", "value"),
+        State("agg-method-joint", "value"),
+        State("agg-weight-segment", "value"),
+        State("agg-weight-joint", "value"),
+        State("removal-threshold-type", "value"),
+        State("removal-threshold-value", "value"),
+        State("scoring-params", "data"),
+    ],
+)
+def update_scoring_parameters(
+    n_clicks,
+    preagg_segment,
+    preagg_joint,
+    agg_method_segment,
+    agg_method_joint,
+    agg_weight_segment,
+    agg_weight_joint,
+    removal_threshold_type,
+    removal_threshold_value,
+    scoring_params_data,
+):
+    # Prevent callback from running before the button is clicked
+    if n_clicks == 0:
+        raise dash.exceptions.PreventUpdate
+
+    # Load current scoring parameters
+    scoring_params = scoringParameters.ScoringParameters.model_validate_json(
+        scoring_params_data
+    )
+
+    # Update PreAggThresholding
+    scoring_params.preagg_thresholding.segment = preagg_segment
+    scoring_params.preagg_thresholding.joint = preagg_joint
+
+    # Update AggregationMethod
+    scoring_params.aggregation_method.segment = agg_method_segment
+    scoring_params.aggregation_method.joint = agg_method_joint
+
+    # Update AggregationWeight
+    scoring_params.aggregation_weight.segment = agg_weight_segment
+    scoring_params.aggregation_weight.joint = agg_weight_joint
+
+    # Update Removal Threshold
+    if removal_threshold_type == "all":
+        scoring_params.removal_threshold = {
+            marker: removal_threshold_value for marker in active_body.get_markers()
+        }
+    else:
+        scoring_params.removal_threshold[removal_threshold_type] = (
+            removal_threshold_value
+        )
+
+    updated_scoring_params_data = scoring_params.model_dump_json()
+    print(f"Updated Scoring Parameters:\n{updated_scoring_params_data}")
+    return updated_scoring_params_data
 
 
 if __name__ == "__main__":
