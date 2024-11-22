@@ -144,7 +144,7 @@ def combine_component_scores(
     for comp in ["segment", "joint"]:
         w = getattr(scoring_parameters.aggregation_weight, comp)
         wscore = {
-            m: r * w if isinstance(r, float) else [rr * w for rr in r]
+            m: r * w if isinstance(r, (float, int)) else [rr * w for rr in r]
             for m, r in component_scores[comp].items()
         }
         weighted_scores[comp] = wscore

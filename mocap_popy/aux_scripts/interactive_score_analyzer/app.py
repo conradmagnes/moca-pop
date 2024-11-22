@@ -143,6 +143,7 @@ app = dash.Dash(__name__, suppress_callback_exceptions=True)
 
 stores = [
     dcc.Store(id="selected-node", data=active_body.get_markers()[0]),
+    dcc.Store(id="node-moved", data=False),
     dcc.Store(id="node-positions", data=initial_positions),
     dcc.Store(id="node-offsets", data={node: [0, 0, 0] for node in initial_positions}),
     dcc.Store(id="component-scores", data=component_scores),
@@ -175,9 +176,9 @@ app.layout = html.Div(
 )
 def update_graph(node_positions, node_scores):
     # Update node positions
-    active_body.update_node_positions(
-        {m: np.array(p) for m, p in node_positions.items()}
-    )
+    # active_body.update_node_positions(
+    #     {m: np.array(p) for m, p in node_positions.items()}
+    # )
 
     # Create traces for nodes
     calib_node_trace = generate_node_trace(
@@ -235,6 +236,20 @@ def select_node(click_data):
     return node_name
 
 
+@app.callback(
+    Output("node-offsets", "data"),
+    [
+        Input("slider-x", "value"),
+        Input("slider-y", "value"),
+        Input("slider-z", "value"),
+    ],
+    [State("selected-node", "data"), State("node-offsets", "data")],
+)
+def update_offsets(slider_x, slider_y, slider_z, selected_node, node_offsets):
+    node_offsets[selected_node] = [slider_x, slider_y, slider_z]
+    return node_offsets
+
+
 # Callback to update the sliders when a node is selected or when reset buttons are clicked
 @app.callback(
     [
@@ -252,18 +267,29 @@ def select_node(click_data):
 )
 def update_sliders(selected_node, reset_clicks, reset_all_clicks, node_offsets):
     # Determine which button (if any) was clicked
+    updated_offsets = node_offsets.copy()
     ctx = dash.callback_context
     if ctx.triggered:
         trigger = ctx.triggered[0]["prop_id"].split(".")[0]
         if trigger == "reset-button":
             # Reset only the selected node
-            node_offsets[selected_node] = [0, 0, 0]
-            return 0, 0, 0, f"{isa_layout.NM_HEADER_LABEL}: {selected_node}"
+            updated_offsets[selected_node] = [0, 0, 0]
+            return (
+                0,
+                0,
+                0,
+                f"{isa_layout.NM_HEADER_LABEL}: {selected_node}",
+            )
         elif trigger == "reset-all-button":
             # Reset all nodes
             for node in node_offsets:
                 node_offsets[node] = [0, 0, 0]
-            return 0, 0, 0, f"{isa_layout.NM_HEADER_LABEL}: {selected_node}"
+            return (
+                0,
+                0,
+                0,
+                f"{isa_layout.NM_HEADER_LABEL}: {selected_node}",
+            )
 
     # Otherwise, use the stored offset for the selected node
     offset_x, offset_y, offset_z = node_offsets[selected_node]
@@ -277,42 +303,31 @@ def update_sliders(selected_node, reset_clicks, reset_all_clicks, node_offsets):
 
 # Combined Callback to update node positions, offsets, and handle "Reset All" functionality
 @app.callback(
+    [Output("node-positions", "data"), Output("node-moved", "data")],
     [
-        Output("node-positions", "data"),
-        Output("node-offsets", "data"),
-    ],
-    [
-        Input("slider-x", "value"),
-        Input("slider-y", "value"),
-        Input("slider-z", "value"),
+        Input("node-offsets", "data"),
         Input("reset-all-button", "n_clicks"),
     ],
     [
         State("selected-node", "data"),
         State("node-positions", "data"),
-        State("node-offsets", "data"),
     ],
 )
-def update_node_positions_and_offsets(
-    slider_x,
-    slider_y,
-    slider_z,
+def update_node_positions(
+    node_offsets,
     reset_all_clicks,
     selected_node,
     node_positions,
-    node_offsets,
 ):
     ctx = dash.callback_context
 
     updated_positions = node_positions.copy()
-    updated_offsets = node_offsets.copy()
 
     if ctx.triggered and ctx.triggered[0]["prop_id"] == "reset-all-button.n_clicks":
         # Reset all node positions and offsets
         updated_positions = {
             node: initial_positions[node] for node in initial_positions
         }
-        updated_offsets = {node: [0, 0, 0] for node in initial_positions}
         active_body.update_node_positions(
             updated_positions, recompute_lengths=True, recompute_angles=True
         )
@@ -320,14 +335,16 @@ def update_node_positions_and_offsets(
         active_body.compute_joint_residuals(calibrated_body)
 
     else:
-        updated_offsets[selected_node] = [slider_x, slider_y, slider_z]
+        offsets = node_offsets[selected_node]
 
-        initial_position = initial_positions[selected_node]  # Get the original position
+        initial_position = initial_positions[selected_node]
         updated_positions[selected_node] = [
-            initial_position[0] + slider_x,
-            initial_position[1] + slider_y,
-            initial_position[2] + slider_z,
+            ip + off for ip, off in zip(initial_position, offsets)
         ]
+
+        if updated_positions[selected_node] == node_positions[selected_node]:
+            return node_positions, False
+
         active_node = active_body.get_node(selected_node)
         active_node.position = np.array(updated_positions[selected_node])
         for seg in active_node.get_connected_segments(active_body.segments):
@@ -337,7 +354,7 @@ def update_node_positions_and_offsets(
             joint.compute_angle()
             joint.compute_residuals(calibrated_body)
 
-    return (updated_positions, updated_offsets)
+    return updated_positions, True
 
 
 @app.callback(
@@ -349,16 +366,12 @@ def update_node_positions_and_offsets(
         Output("max-marker", "data"),
     ],
     [
-        Input("slider-x", "value"),
-        Input("slider-y", "value"),
-        Input("slider-z", "value"),
-        Input("reset-all-button", "n_clicks"),
+        Input("node-positions", "data"),
         Input("update-button", "n_clicks"),
         Input("scoring-params", "data"),
     ],
     [
-        State("node-positions", "data"),
-        State("node-offsets", "data"),
+        State("node-moved", "data"),
         State("scoring-params", "data"),
         State("component-scores", "data"),
         State("raw-node-scores", "data"),
@@ -368,14 +381,10 @@ def update_node_positions_and_offsets(
     ],
 )
 def update_scores(
-    slider_x,
-    slider_y,
-    slider_z,
-    reset_all_clicks,
+    node_positions,
     update_button_clicks,
     scoring_params_input,
-    node_positions,
-    node_offsets,
+    node_moved,
     scoring_params_state,
     component_scores,
     raw_node_scores,
@@ -383,6 +392,13 @@ def update_scores(
     max_score,
     max_marker,
 ):
+    # if not node_moved and
+    ctx = dash.callback_context
+    updated_triggered = (
+        ctx.triggered and ctx.triggered[0]["prop_id"] == "update-button.n_clicks"
+    )
+    if not (node_moved or updated_triggered):
+        return component_scores, raw_node_scores, node_scores, max_score, max_marker
     scoring_params = scoringParameters.ScoringParameters.model_validate_json(
         scoring_params_state
     )
@@ -436,7 +452,7 @@ def update_scores(
     ],
     State("scoring-params", "data"),
 )
-def update_connected_info(
+def update_node_inspector(
     selected_node,
     node_positions,
     node_offsets,
