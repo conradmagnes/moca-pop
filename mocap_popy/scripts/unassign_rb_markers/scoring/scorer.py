@@ -134,6 +134,32 @@ def score_residual(residual: float, tolerance: float = 0, weight: float = 1):
     return max(0, abs(residual) - tolerance) * weight
 
 
+def combine_component_scores(
+    component_scores: dict,
+    scoring_parameters: ScoringParameters,
+    return_composite_score: bool = False,
+) -> dict[str, Union[float, list]]:
+    marker_set = list(component_scores["segment"].keys())
+    weighted_scores = {}
+    for comp in ["segment", "joint"]:
+        w = getattr(scoring_parameters.aggregation_weight, comp)
+        wscore = {
+            m: r * w if isinstance(r, float) else [rr * w for rr in r]
+            for m, r in component_scores[comp].items()
+        }
+        weighted_scores[comp] = wscore
+    combined = np.sum(
+        [np.array(list(ss.values())) for ss in weighted_scores.values()], axis=0
+    )
+    if return_composite_score:
+        return {m: combined[i] for i, m in enumerate(marker_set)}
+
+    return {
+        m: [combined[i], *[ss[m] for ss in component_scores.values()]]
+        for i, m in enumerate(marker_set)
+    }
+
+
 def score_rigid_body_components(
     rigid_body: RigidBody,
     component: Literal["segment", "joint", "node"],
@@ -168,29 +194,17 @@ def score_rigid_body_components(
     if component == "node":
         sub_scores = {}
         for comp in ["segment", "joint"]:
-            res = score_rigid_body_components(
+            sub_scores[comp] = score_rigid_body_components(
                 rigid_body,
                 comp,
                 residual_type,
                 scoring_parameters=scoring_parameters,
                 marker_set=marker_set,
             )
-            w = getattr(scoring_parameters.aggregation_weight, comp)
-            res = {
-                m: r * w if isinstance(r, float) else [rr * w for rr in r]
-                for m, r in res.items()
-            }
-            sub_scores[comp] = res
-        combined = np.sum(
-            [np.array(list(ss.values())) for ss in sub_scores.values()], axis=0
-        )
-        if return_composite_score:
-            return {m: combined[i] for i, m in enumerate(marker_set)}
 
-        return {
-            m: [combined[i], *[ss[m] for ss in sub_scores.values()]]
-            for i, m in enumerate(marker_set)
-        }
+        return combine_component_scores(
+            sub_scores, scoring_parameters, return_composite_score
+        )
 
     scores = {m: 0 for m in marker_set}
     average = getattr(scoring_parameters.aggregation_method, component) == "mean"
