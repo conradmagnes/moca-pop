@@ -23,6 +23,7 @@ LOG_DIR = os.path.join(ROOT_DIR, "logs")
 DATASET_DIR = os.path.join(ROOT_DIR, "example_datasets")
 UTILS_DIR = os.path.join(SRC_DIR, "utils")
 SCRIPTS_DIR = os.path.join(SRC_DIR, "scripts")
+AUX_DIR = os.path.join(SRC_DIR, "aux_scripts")
 
 # paths under SRC (excluding config)
 TEMPLATES_DIR = os.path.join(SRC_DIR, "model_templates")

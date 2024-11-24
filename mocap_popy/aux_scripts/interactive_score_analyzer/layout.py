@@ -266,12 +266,21 @@ def generate_ig() -> dcc.Graph:
     )
 
 
-def get_scene_limits(positions: dict, slider_params) -> dict:
+def get_scene_limits(positions: list, slider_params) -> dict:
     scene_limits = {}
+    max_range = 0
+    ax_middles = {}
     for i, ax in enumerate(["x", "y", "z"]):
-        min_val = min([pos[i] for pos in positions.values()]) + slider_params["min"]
-        max_val = max([pos[i] for pos in positions.values()]) + slider_params["max"]
-        scene_limits[f"{ax}axis"] = {"range": [min_val, max_val]}
+        min_val = min([pos[i] for pos in positions]) + slider_params["min"]
+        max_val = max([pos[i] for pos in positions]) + slider_params["max"]
+        if (max_val - min_val) > max_range:
+            max_range = max_val - min_val
+        ax_middles[ax] = (max_val + min_val) / 2
+
+    scene_limits = {
+        f"{ax}axis": {"range": [mid - max_range / 2, mid + max_range / 2]}
+        for ax, mid in ax_middles.items()
+    }
 
     return scene_limits
 
@@ -379,6 +388,11 @@ def generate_nm_div() -> html.Div:
 SPE_DIV_STYLE = {
     **NI_DIV_STYLE,
     "left": "75vw",
+}
+
+SPE_BUTTON_STYLE = {
+    "width": "35%",
+    "height": "5vh",
 }
 
 
@@ -567,7 +581,36 @@ def generate_removal_thresh_div(
                 style={"position": "relative", "width": "100%", "display": "flex"},
             ),
         ],
-        style={"position": "relative", "height": "18vh"},
+        style={"position": "relative", "height": "16vh"},
+    )
+
+
+def generate_import_export_div() -> html.Div:
+    return html.Div(
+        [
+            dcc.Upload(
+                id="import-scoring",
+                children=html.Button("Import", style={**SPE_BUTTON_STYLE}),
+                multiple=False,
+                accept=".json",
+                style={"position": "absolute", "width": "100%", "left": "10%"},
+            ),
+            html.Button(
+                "Export",
+                id="export-scoring",
+                n_clicks=0,
+                style={
+                    **SPE_BUTTON_STYLE,
+                    "position": "absolute",
+                    "left": "55%",
+                },
+            ),
+        ],
+        style={
+            "position": "relative",
+            "width": "100%",
+            "height": "5vh",
+        },
     )
 
 
@@ -578,6 +621,7 @@ def generate_spe_div(
     return html.Div(
         [
             html.H2("Scoring Parameters"),
+            generate_import_export_div(),
             generate_preagg_threshold_div(scoring_params),
             generate_agg_method_div(scoring_params),
             generate_agg_weight_div(scoring_params),
@@ -587,15 +631,11 @@ def generate_spe_div(
                 "Update",
                 id="update-button",
                 n_clicks=0,
-                style={
-                    "width": "40%",
-                    "height": "6%",
-                    "position": "relative",
-                    "left": "30%",
-                },
+                style={**SPE_BUTTON_STYLE, "position": "relative", "left": "30%"},
             ),
             # Output for displaying updated values
             html.Div(id="output-info", style={"margin-top": "20px"}),
+            dcc.Download(id="download-scoring"),
         ],
         id="sp-editor",
         style=SPE_DIV_STYLE,
