@@ -297,6 +297,12 @@ NM_DIV_STYLE = {
     **STANDARD_PADDING,
     **SIMPLE_BORDER,
 }
+NM_SLIDER_DIV_STYLE = {
+    "position": "absolute",
+    "height": "100%",
+    "width": "50%",
+    "left": "50%",
+}
 
 NM_BUTTON_STYLE = {
     "position": "absolute",
@@ -342,7 +348,7 @@ def generate_nm_slider(
     )
 
 
-def generate_nm_div() -> html.Div:
+def generate_nm_slider_div() -> html.Div:
     """!Generate and return the Node Manipulator Div"""
     global NM_HEADER_LABEL, NM_SLIDER_ARGS, NM_SLIDER_STYLE, NM_BUTTON_STYLE, NM_DIV_STYLE
 
@@ -356,9 +362,8 @@ def generate_nm_div() -> html.Div:
                     generate_nm_slider("Z", NM_SLIDER_ARGS, NM_SLIDER_STYLE),
                 ],
                 style={
-                    "height": "50%",
-                    "width": "50%",
-                    "left": "50%",
+                    "width": "60%",
+                    "left": "40%",
                     "position": "absolute",
                 },
             ),
@@ -367,8 +372,8 @@ def generate_nm_div() -> html.Div:
                 id="reset-button",
                 n_clicks=0,
                 style={
+                    "left": "0",
                     "top": "25%",
-                    "left": "10%",
                     **NM_BUTTON_STYLE,
                 },
             ),
@@ -376,8 +381,20 @@ def generate_nm_div() -> html.Div:
                 "Reset All",
                 id="reset-all-button",
                 n_clicks=0,
-                style={"top": "60%", "left": "10%", **NM_BUTTON_STYLE},
+                style={"top": "60%", "left": "0%", **NM_BUTTON_STYLE},
             ),
+        ],
+        style=NM_SLIDER_DIV_STYLE,
+    )
+
+
+def generate_nm_div() -> html.Div:
+    """!Generate and return the Node Manipulator Div"""
+    global NM_HEADER_LABEL, NM_SLIDER_ARGS, NM_SLIDER_STYLE, NM_BUTTON_STYLE, NM_DIV_STYLE
+
+    return html.Div(
+        [
+            generate_nm_slider_div(),
         ],
         style=NM_DIV_STYLE,
     )

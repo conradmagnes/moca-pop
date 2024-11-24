@@ -353,10 +353,16 @@ def select_node(click_data):
         Input("slider-x", "value"),
         Input("slider-y", "value"),
         Input("slider-z", "value"),
+        Input("reset-all-button", "n_clicks"),
     ],
     [State("selected-node", "data"), State("node-offsets", "data")],
 )
-def update_offsets(slider_x, slider_y, slider_z, selected_node, node_offsets):
+def update_offsets(
+    slider_x, slider_y, slider_z, reset_all_clicks, selected_node, node_offsets
+):
+    ctx = dash.callback_context
+    if ctx.triggered and ctx.triggered[0]["prop_id"] == "reset-all-button.n_clicks":
+        return {node: [0, 0, 0] for node in node_offsets}
     node_offsets[selected_node] = [slider_x, slider_y, slider_z]
     return node_offsets
 
@@ -377,33 +383,14 @@ def update_offsets(slider_x, slider_y, slider_z, selected_node, node_offsets):
     State("node-offsets", "data"),
 )
 def update_sliders(selected_node, reset_clicks, reset_all_clicks, node_offsets):
-    updated_offsets = node_offsets.copy()
     ctx = dash.callback_context
     if ctx.triggered:
-        trigger = ctx.triggered[0]["prop_id"].split(".")[0]
-        if trigger == "reset-button":
-            updated_offsets[selected_node] = [0, 0, 0]
-            return (
-                0,
-                0,
-                0,
-                f"{isa_layout.NM_HEADER_LABEL}: {selected_node}",
-            )
-        elif trigger == "reset-all-button":
-            for node in node_offsets:
-                node_offsets[node] = [0, 0, 0]
-            return (
-                0,
-                0,
-                0,
-                f"{isa_layout.NM_HEADER_LABEL}: {selected_node}",
-            )
+        triggered_button = ctx.triggered[0]["prop_id"].split(".")[0]
+        if triggered_button in ["reset-button", "reset-all-button"]:
+            return (0, 0, 0, dash.no_update)
 
-    offset_x, offset_y, offset_z = node_offsets[selected_node]
     return (
-        offset_x,
-        offset_y,
-        offset_z,
+        *node_offsets[selected_node],
         f"{isa_layout.NM_HEADER_LABEL}: {selected_node}",
     )
 
