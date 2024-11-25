@@ -11,12 +11,18 @@
     -   handle non-existent markers from file
     - scaling of x axis is off?
 
+
+    callbacks:
+    - remove node button clicked -> update removed_nodes, update node_positions, update node_scores
+    - removed_nodes updated (input) -> update removed node table
+    - add back node button clicked -> update removed_nodes, update node_positions, update node_scores
+
 """
 
 import argparse
 import dash
 from dash import dcc, html
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output, State, ALL
 import copy
 import os
 import json
@@ -196,7 +202,8 @@ if ignore_symmetry:
 
 # Initial Node Positions
 initial_positions = {m.marker: m.position for m in active_body.nodes}
-
+removed_nodes: dict[str, np.ndarray] = {}
+staged_for_addback: dict[str, np.ndarray] = {}
 component_scores = {
     comp_name: {m.marker: 0 for m in calibrated_body.nodes}
     for comp_name in ["segment", "joint"]
@@ -274,6 +281,9 @@ stores = [
     dcc.Store(id="max-marker", data="N/A"),
     dcc.Store(id="scoring-params", data=scoring_params.model_dump_json()),
     dcc.Store(id="removal-threshold-all", data=removal_threshold_all),
+    dcc.Store(id="removed-nodes", data=removed_nodes),
+    dcc.Store(id="staged-for-addback", data=staged_for_addback),
+    dcc.Store(id="initial-positions", data=initial_positions),
 ]
 
 # Layout of the App
@@ -348,6 +358,57 @@ def select_node(click_data):
 
 
 @app.callback(
+    [
+        Output("removed-nodes", "data"),
+        Output("staged-for-addback", "data"),
+        Output("initial-positions", "data"),
+    ],
+    [
+        Input("remove-node-button", "n_clicks"),
+        Input({"type": "add-back-button", "index": ALL}, "n_clicks"),
+    ],
+    [
+        State("selected-node", "data"),
+        State("removed-nodes", "data"),
+        State("staged-for-addback", "data"),
+        State("initial-positions", "data"),
+    ],
+)
+def handle_node_removal(
+    remove_node_clicks,
+    n_clicks_list,
+    selected_node,
+    removed_nodes,
+    staged_for_addback,
+    initial_positions,
+):
+    ctx = dash.callback_context
+    updated_removed_nodes = removed_nodes.copy()
+    if ctx.triggered and ctx.triggered[0]["prop_id"] == "remove-node-button.n_clicks":
+        updated_removed_nodes[selected_node] = initial_positions[selected_node]
+        initial_positions[selected_node] = [0, 0, 0]
+        return updated_removed_nodes, dash.no_update, initial_positions
+
+    for node_name, n_clicks in zip(removed_nodes.keys(), n_clicks_list):
+        if n_clicks > 0:
+            staged_for_addback[node_name] = removed_nodes.pop(node_name)
+            initial_positions[node_name] = staged_for_addback[node_name]
+            return removed_nodes, staged_for_addback, initial_positions
+
+    raise dash.exceptions.PreventUpdate
+
+
+@app.callback(
+    Output("nm-removal", "children"),
+    [
+        Input("removed-nodes", "data"),
+    ],
+)
+def update_removed_node_table(removed_nodes):
+    return isa_layout.generate_nm_removal_div_children(removed_nodes)
+
+
+@app.callback(
     Output("node-offsets", "data"),
     [
         Input("slider-x", "value"),
@@ -400,37 +461,36 @@ def update_sliders(selected_node, reset_clicks, reset_all_clicks, node_offsets):
     [Output("node-positions", "data"), Output("node-moved", "data")],
     [
         Input("node-offsets", "data"),
+        Input("removed-nodes", "data"),
         Input("reset-all-button", "n_clicks"),
     ],
     [
         State("selected-node", "data"),
         State("node-positions", "data"),
+        State("staged-for-addback", "data"),
+        State("initial-positions", "data"),
     ],
 )
 def update_node_positions(
     node_offsets,
+    removed_nodes,
     reset_all_clicks,
     selected_node,
     node_positions,
+    staged_for_addback,
+    initial_positions,
 ):
     ctx = dash.callback_context
+    trigger = ctx.triggered[0] if ctx.triggered else None
+
+    # Check which input triggered the callback
+    if not trigger:
+        raise dash.exceptions.PreventUpdate
 
     updated_positions = node_positions.copy()
+    prop_id = trigger["prop_id"]
 
-    if ctx.triggered and ctx.triggered[0]["prop_id"] == "reset-all-button.n_clicks":
-        # Reset all node positions and offsets
-        updated_positions = {
-            node: initial_positions[node]
-            for node in initial_positions
-            if active_body.get_node(node).exists
-        }
-        active_body.update_node_positions(
-            updated_positions, recompute_lengths=True, recompute_angles=True
-        )
-        active_body.compute_segment_residuals(calibrated_body)
-        active_body.compute_joint_residuals(calibrated_body)
-
-    else:
+    if "node-offsets" in prop_id:
         offsets = node_offsets[selected_node]
 
         initial_position = initial_positions[selected_node]
@@ -449,6 +509,32 @@ def update_node_positions(
         for joint in active_node.get_connected_joints(active_body.joints):
             joint.compute_angle()
             joint.compute_residuals(calibrated_body)
+
+    elif "reset-all-button" in prop_id:
+        updated_positions = {
+            node: initial_positions[node]
+            for node in initial_positions
+            if active_body.get_node(node).exists
+        }
+        active_body.update_node_positions(
+            updated_positions, recompute_lengths=True, recompute_angles=True
+        )
+        active_body.compute_segment_residuals(calibrated_body)
+        active_body.compute_joint_residuals(calibrated_body)
+
+    elif "removed-nodes" in prop_id:
+        for node, pos in staged_for_addback.items():
+            updated_positions[node] = pos
+
+        for node, pos in removed_nodes.items():
+            updated_positions[node] = initial_positions[node]
+
+        updated_positions = {m: np.array(p) for m, p in updated_positions.items()}
+        active_body.update_node_positions(
+            updated_positions, recompute_lengths=True, recompute_angles=True
+        )
+        active_body.compute_segment_residuals(calibrated_body)
+        active_body.compute_joint_residuals(calibrated_body)
 
     return updated_positions, True
 

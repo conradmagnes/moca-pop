@@ -297,16 +297,23 @@ NM_DIV_STYLE = {
     **STANDARD_PADDING,
     **SIMPLE_BORDER,
 }
+NM_REMOVAL_DIV_STYLE = {
+    "position": "absolute",
+    "height": "100%",
+    "width": "60%",
+    "left": "40%",
+}
 NM_SLIDER_DIV_STYLE = {
     "position": "absolute",
     "height": "100%",
-    "width": "50%",
-    "left": "50%",
+    "width": "40%",
+    "left": "0%",
 }
+
 
 NM_BUTTON_STYLE = {
     "position": "absolute",
-    "height": "20%",
+    "height": "18%",
     "width": "30%",
 }
 NM_SLIDER_ARGS = {
@@ -321,6 +328,21 @@ NM_SLIDER_STYLE = {"width": "100%", "height": "100%"}
 
 
 NM_HEADER_LABEL = "Set Offsets"
+NM_REMOVAL_TABLE_STYLE = {
+    "height": "100%",
+    "width": "100%",
+    "display": "flex",
+    "flex-direction": "column",
+    "align-items": "flex-start",
+}
+NM_TABLE_ROW_STYLE = {
+    "height": "20%",
+    "width": "100%",
+    "display": "flex",  # Use flex to split cells evenly
+    "align-items": "center",  # Align items in each row to the center vertically
+    "flex-shrink": "0",  # Prevent rows from shrinking
+    "min-height": "5vh",  # Set a minimum height for each row
+}
 
 
 def generate_nm_slider(
@@ -354,26 +376,13 @@ def generate_nm_slider_div() -> html.Div:
 
     return html.Div(
         [
-            html.Label(id="slider-label", children=NM_HEADER_LABEL),
-            html.Div(
-                [
-                    generate_nm_slider("X", NM_SLIDER_ARGS, NM_SLIDER_STYLE),
-                    generate_nm_slider("Y", NM_SLIDER_ARGS, NM_SLIDER_STYLE),
-                    generate_nm_slider("Z", NM_SLIDER_ARGS, NM_SLIDER_STYLE),
-                ],
-                style={
-                    "width": "60%",
-                    "left": "40%",
-                    "position": "absolute",
-                },
-            ),
             html.Button(
                 "Reset",
                 id="reset-button",
                 n_clicks=0,
                 style={
-                    "left": "0",
-                    "top": "25%",
+                    "left": "65%",
+                    "top": "10%",
                     **NM_BUTTON_STYLE,
                 },
             ),
@@ -381,11 +390,83 @@ def generate_nm_slider_div() -> html.Div:
                 "Reset All",
                 id="reset-all-button",
                 n_clicks=0,
-                style={"top": "60%", "left": "0%", **NM_BUTTON_STYLE},
+                style={"top": "40%", "left": "65%", **NM_BUTTON_STYLE},
+            ),
+            html.Button(
+                id="remove-node-button",
+                children="Remove",
+                style={**NM_BUTTON_STYLE, "left": "65%", "top": "70%"},
+            ),
+            html.Div(
+                [
+                    html.Label(
+                        id="slider-label",
+                        children=NM_HEADER_LABEL,
+                    ),
+                    generate_nm_slider(
+                        "X", NM_SLIDER_ARGS, NM_SLIDER_STYLE, {"position": "relative"}
+                    ),
+                    generate_nm_slider("Y", NM_SLIDER_ARGS, NM_SLIDER_STYLE),
+                    generate_nm_slider("Z", NM_SLIDER_ARGS, NM_SLIDER_STYLE),
+                ],
+                style={
+                    "width": "60%",
+                    "left": "5%",
+                    "position": "absolute",
+                },
             ),
         ],
         style=NM_SLIDER_DIV_STYLE,
     )
+
+
+def generate_nm_removal_row(text):
+    return html.Tr(
+        [
+            html.Td(text, style={"width": "60%"}),
+            html.Td(
+                html.Button(
+                    "Add Back",
+                    id={"type": f"add-back-button", "index": text},
+                    n_clicks=0,
+                    style={"width": "100%", "height": "100%"},
+                ),
+                style={"width": "40%", "height": "80%", "top": "10%"},
+            ),
+        ],
+        style=NM_TABLE_ROW_STYLE,
+    )
+
+
+def generate_nm_removal_table(removed_nodes):
+    rows = [generate_nm_removal_row(node) for node in removed_nodes]
+    return html.Table(
+        rows,
+        style=NM_REMOVAL_TABLE_STYLE,
+    )
+
+
+def generate_nm_removal_div() -> html.Div:
+    return html.Div(id="nm-removal", style=NM_REMOVAL_DIV_STYLE)
+
+
+def generate_nm_removal_div_children(removed_nodes: dict) -> html.Div:
+    return [
+        html.Div(
+            [
+                html.Label(
+                    "Removed Nodes",
+                    style={"left": "0%", "top": "0%", "position": "relative"},
+                ),
+                generate_nm_removal_table(removed_nodes),
+            ],
+            style={
+                "height": "80%",
+                "width": "45%",
+                "overflow-y": "auto",
+            },
+        ),
+    ]
 
 
 def generate_nm_div() -> html.Div:
@@ -395,6 +476,7 @@ def generate_nm_div() -> html.Div:
     return html.Div(
         [
             generate_nm_slider_div(),
+            generate_nm_removal_div(),
         ],
         style=NM_DIV_STYLE,
     )
