@@ -38,23 +38,24 @@ import mocap_popy.aux_scripts.interactive_score_analyzer.helpers as isa_helpers
 LOGGER = logging.getLogger("InteractiveScoreAnalyzer")
 ## ---- ##
 
+rb_name = "Right_Foot"
+subject_name = "subject"
+trial_name = "trial01"
+ignore_symmetry = True
 
 project_dir = os.path.join(directory.DATASET_DIR, "shoe_stepping")
-vsk_fp = os.path.join(project_dir, "subject.vsk")
+vsk_fp = os.path.join(project_dir, f"{subject_name}.vsk")
 
-ignore_symmetry = True
 calibrated_rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(
     vsk_fp, ignore_marker_symmetry=ignore_symmetry
 )
-
-rb_name = "Right_Foot"
 
 calibrated_body = calibrated_rigid_bodies[rb_name]
 calibrated_body.compute_segment_lengths()
 calibrated_body.compute_joint_angles()
 
 
-trial_fp = os.path.join(project_dir, "trial01.c3d")
+trial_fp = os.path.join(project_dir, f"{trial_name}.c3d")
 c3d_reader = c3d_parser.get_reader(trial_fp)
 marker_trajectories = c3d_parser.get_marker_trajectories(c3d_reader)
 trial_frames = c3d_parser.get_frames(c3d_reader)
@@ -88,9 +89,6 @@ if ignore_symmetry:
     scoring_params = isa_helpers.remove_symmetry_from_scoring(scoring_params)
 
 # Initial Node Positions
-initial_positions = {m.marker: m.position for m in active_body.nodes}
-removed_nodes: dict[str, np.ndarray] = {}
-staged_for_addback: dict[str, np.ndarray] = {}
 missing_nodes = [
     m for m in calibrated_body.get_markers() if not active_body.get_node(m).exists
 ]
@@ -100,62 +98,6 @@ component_scores = {
     comp_name: {m.marker: 0 for m in calibrated_body.nodes}
     for comp_name in ["segment", "joint"]
 }
-raw_node_scores = {m: 0 for m in active_body.get_markers()}
-node_scores = {m: 0 for m in active_body.get_markers()}
-
-
-## ------ Graphing Helpers ----- ##
-
-
-def generate_node_trace(
-    body: RigidBody,
-    node_scores: dict[str, float],
-    mode: str,
-    marker_args: dict,
-    text_position="top center",
-    body_type="calibrated",
-):
-    exisiting_nodes = [n for n in body.nodes if n.exists]
-    exisiting_node_scores = [node_scores[n.marker] for n in exisiting_nodes]
-    if body_type == "calibrated":
-        margs = {**marker_args, "color": isa_consts.CALIBRATED_COLOR}
-    else:
-        colors = [isa_consts.get_component_color(s) for s in exisiting_node_scores]
-        margs = {**marker_args, "color": colors}
-
-    return go.Scatter3d(
-        x=[n.position[0] for n in exisiting_nodes],
-        y=[n.position[1] for n in exisiting_nodes],
-        z=[n.position[2] for n in exisiting_nodes],
-        mode=mode,
-        marker=margs,
-        text=[n.marker for n in exisiting_nodes],
-        textposition=text_position,
-    )
-
-
-def generate_segment_traces(body: RigidBody, line_args: dict, body_type="calibrated"):
-    traces = []
-    for seg in [s for s in body.segments if s.exists]:
-        if body_type == "calibrated":
-            color = isa_consts.CALIBRATED_COLOR
-        else:
-            color = isa_consts.get_component_color(
-                abs(seg.residual_calib), seg.tolerance
-            )
-
-        t = go.Scatter3d(
-            x=[seg.nodes[0].position[0], seg.nodes[1].position[0]],
-            y=[seg.nodes[0].position[1], seg.nodes[1].position[1]],
-            z=[seg.nodes[0].position[2], seg.nodes[1].position[2]],
-            mode="lines",
-            line={**line_args, "color": color},
-            hoverinfo="skip",
-            hovertemplate=None,
-        )
-        traces.append(t)
-
-    return traces
 
 
 # Initialize the Dash app
@@ -164,18 +106,24 @@ app = dash.Dash(__name__, suppress_callback_exceptions=True)
 stores = [
     dcc.Store(id="selected-node", data=active_body.get_markers()[0]),
     dcc.Store(id="node-moved", data=False),
-    dcc.Store(id="node-positions", data=initial_positions),
-    dcc.Store(id="node-offsets", data={node: [0, 0, 0] for node in initial_positions}),
+    dcc.Store(
+        id="node-positions", data={m.marker: m.position for m in active_body.nodes}
+    ),
+    dcc.Store(
+        id="node-offsets", data={node: [0, 0, 0] for node in active_body.get_markers()}
+    ),
     dcc.Store(id="component-scores", data=component_scores),
-    dcc.Store(id="raw-node-scores", data=raw_node_scores),
-    dcc.Store(id="node-scores", data=node_scores),
+    dcc.Store(id="raw-node-scores", data={m: 0 for m in active_body.get_markers()}),
+    dcc.Store(id="node-scores", data={m: 0 for m in active_body.get_markers()}),
     dcc.Store(id="max-score", data=0.0),
     dcc.Store(id="max-marker", data="N/A"),
     dcc.Store(id="scoring-params", data=scoring_params.model_dump_json()),
     dcc.Store(id="removal-threshold-all", data=removal_threshold_all),
-    dcc.Store(id="removed-nodes", data=removed_nodes),
-    dcc.Store(id="staged-for-addback", data=staged_for_addback),
-    dcc.Store(id="initial-positions", data=initial_positions),
+    dcc.Store(id="removed-nodes", data={}),
+    dcc.Store(id="staged-for-addback", data={}),
+    dcc.Store(
+        id="initial-positions", data={m.marker: m.position for m in active_body.nodes}
+    ),
     dcc.Store(id="missing-nodes", data=missing_nodes),
     dcc.Store(id="fit-button-states", data=button_states),
 ]
@@ -185,7 +133,7 @@ app.layout = html.Div(
     [
         isa_layout.generate_ni_div(),
         isa_layout.generate_ig(),
-        isa_layout.generate_nm_div(removed_nodes, missing_nodes),
+        isa_layout.generate_nm_div(None, missing_nodes),
         isa_layout.generate_spe_div(scoring_params, removal_threshold_all),
         *stores,
     ]
@@ -195,25 +143,34 @@ app.layout = html.Div(
 # Callback to update the 3D plot
 @app.callback(
     Output("interactive-graph", "figure"),
-    [Input("node-positions", "data"), Input("node-scores", "data")],
+    [
+        Input("node-positions", "data"),
+        Input("node-scores", "data"),
+        Input("label-toggle", "value"),
+    ],
 )
-def update_graph(node_positions, node_scores):
-    calib_node_trace = generate_node_trace(
+def update_graph(node_positions, node_scores, label_toggle):
+    hide_labels = "hide" in label_toggle
+    active_mode = "markers" if hide_labels else "markers+text"
+
+    calib_node_trace = isa_helpers.generate_node_trace(
         calibrated_body,
         node_scores,
         "markers",
         dict(size=5),
     )
-    active_node_trace = generate_node_trace(
+    active_node_trace = isa_helpers.generate_node_trace(
         active_body,
         node_scores,
-        "markers+text",
+        active_mode,
         dict(size=7),
         body_type="active",
     )
 
-    calib_segment_traces = generate_segment_traces(calibrated_body, dict(width=1))
-    active_segment_traces = generate_segment_traces(
+    calib_segment_traces = isa_helpers.generate_segment_traces(
+        calibrated_body, dict(width=1)
+    )
+    active_segment_traces = isa_helpers.generate_segment_traces(
         active_body, dict(width=2), body_type="active"
     )
     data = (

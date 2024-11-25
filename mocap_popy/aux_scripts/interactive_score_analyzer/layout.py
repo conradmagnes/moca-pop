@@ -259,11 +259,21 @@ IG_DIV_STYLE = {
 }
 
 
-def generate_ig() -> dcc.Graph:
-    return dcc.Graph(
-        id="interactive-graph",
+def generate_ig() -> html.Div:
+    return html.Div(
+        [
+            dcc.Graph(id="interactive-graph", style={"height": "95%", "width": "100%"}),
+            dcc.Checklist(
+                id="label-toggle",
+                options=[{"label": "Hide Labels", "value": "hide"}],
+                value=[],
+                inline=True,
+                style={"height": "5%"},
+            ),
+        ],
         style=IG_DIV_STYLE,
     )
+    # return dcc.Graph(id="interactive-graph", style=IG_DIV_STYLE)
 
 
 def get_scene_limits(positions: list, slider_params) -> dict:
@@ -338,6 +348,7 @@ NM_REMOVAL_TABLE_STYLE = {
     "display": "flex",
     "flex-direction": "column",
     "align-items": "flex-start",
+    "overflow-y": "auto",
 }
 NM_TABLE_ROW_STYLE = {
     "height": "20%",
@@ -481,7 +492,6 @@ def generate_nm_removal_div_children(removed_nodes: dict) -> html.Div:
             style={
                 "height": "80%",
                 "width": "95%",
-                "overflow-y": "auto",
             },
         ),
     ]
@@ -535,7 +545,6 @@ def generate_nm_missing_div_children(missing_nodes: dict) -> html.Div:
             style={
                 "height": "80%",
                 "width": "95%",
-                "overflow-y": "auto",
             },
         ),
     ]

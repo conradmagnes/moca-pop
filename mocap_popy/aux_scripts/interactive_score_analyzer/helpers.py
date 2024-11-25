@@ -6,10 +6,14 @@
 """
 
 import numpy as np
+import plotly.graph_objs as go
+
 
 from mocap_popy.config import regex
 from mocap_popy.models.rigid_body import RigidBody
 from mocap_popy.scripts.unassign_rb_markers.scoring import scoringParameters
+
+import mocap_popy.aux_scripts.interactive_score_analyzer.constants as isa_consts
 
 
 def refactor_removal_threshold(
@@ -114,3 +118,54 @@ def apply_transform(points, R, t):
     @return transformed_points (N, 3) ndarray of transformed points.
     """
     return (R @ points.T).T + t
+
+
+def generate_node_trace(
+    body: RigidBody,
+    node_scores: dict[str, float],
+    mode: str,
+    marker_args: dict,
+    text_position="top center",
+    body_type="calibrated",
+):
+    exisiting_nodes = [n for n in body.nodes if n.exists]
+    exisiting_node_scores = [node_scores[n.marker] for n in exisiting_nodes]
+    if body_type == "calibrated":
+        margs = {**marker_args, "color": isa_consts.CALIBRATED_COLOR}
+    else:
+        colors = [isa_consts.get_component_color(s) for s in exisiting_node_scores]
+        margs = {**marker_args, "color": colors}
+
+    return go.Scatter3d(
+        x=[n.position[0] for n in exisiting_nodes],
+        y=[n.position[1] for n in exisiting_nodes],
+        z=[n.position[2] for n in exisiting_nodes],
+        mode=mode,
+        marker=margs,
+        text=[n.marker for n in exisiting_nodes],
+        textposition=text_position,
+    )
+
+
+def generate_segment_traces(body: RigidBody, line_args: dict, body_type="calibrated"):
+    traces = []
+    for seg in [s for s in body.segments if s.exists]:
+        if body_type == "calibrated":
+            color = isa_consts.CALIBRATED_COLOR
+        else:
+            color = isa_consts.get_component_color(
+                abs(seg.residual_calib), seg.tolerance
+            )
+
+        t = go.Scatter3d(
+            x=[seg.nodes[0].position[0], seg.nodes[1].position[0]],
+            y=[seg.nodes[0].position[1], seg.nodes[1].position[1]],
+            z=[seg.nodes[0].position[2], seg.nodes[1].position[2]],
+            mode="lines",
+            line={**line_args, "color": color},
+            hoverinfo="skip",
+            hovertemplate=None,
+        )
+        traces.append(t)
+
+    return traces
