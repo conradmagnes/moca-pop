@@ -297,19 +297,23 @@ NM_DIV_STYLE = {
     **STANDARD_PADDING,
     **SIMPLE_BORDER,
 }
-NM_REMOVAL_DIV_STYLE = {
-    "position": "absolute",
-    "height": "100%",
-    "width": "60%",
-    "left": "40%",
-}
+
 NM_SLIDER_DIV_STYLE = {
     "position": "absolute",
     "height": "100%",
     "width": "40%",
     "left": "0%",
 }
-
+NM_REMOVAL_DIV_STYLE = {
+    "position": "absolute",
+    "height": "100%",
+    "width": "30%",
+    "left": "40%",
+}
+NM_MISSING_DIV_STYLE = {
+    **NM_REMOVAL_DIV_STYLE,
+    "left": "70%",
+}
 
 NM_BUTTON_STYLE = {
     "position": "absolute",
@@ -370,52 +374,57 @@ def generate_nm_slider(
     )
 
 
-def generate_nm_slider_div() -> html.Div:
-    """!Generate and return the Node Manipulator Div"""
+def generate_nm_slider_div_children(disabled: bool = False) -> list:
     global NM_HEADER_LABEL, NM_SLIDER_ARGS, NM_SLIDER_STYLE, NM_BUTTON_STYLE, NM_DIV_STYLE
 
+    slider_args = {**NM_SLIDER_ARGS, "disabled": disabled}
+    return [
+        html.Button(
+            "Reset",
+            id="reset-button",
+            n_clicks=0,
+            style={
+                "left": "65%",
+                "top": "10%",
+                **NM_BUTTON_STYLE,
+            },
+        ),
+        html.Button(
+            "Reset All",
+            id="reset-all-button",
+            n_clicks=0,
+            style={"top": "40%", "left": "65%", **NM_BUTTON_STYLE},
+        ),
+        html.Button(
+            id="remove-node-button",
+            children="Remove",
+            style={**NM_BUTTON_STYLE, "left": "65%", "top": "70%"},
+        ),
+        html.Div(
+            [
+                html.Label(
+                    id="slider-label",
+                    children=NM_HEADER_LABEL,
+                ),
+                generate_nm_slider("X", slider_args, NM_SLIDER_STYLE),
+                generate_nm_slider("Y", slider_args, NM_SLIDER_STYLE),
+                generate_nm_slider("Z", slider_args, NM_SLIDER_STYLE),
+            ],
+            style={
+                "width": "60%",
+                "left": "5%",
+                "position": "absolute",
+            },
+        ),
+    ]
+
+
+def generate_nm_slider_div(disabled: bool = False) -> html.Div:
+    """!Generate and return the Node Manipulator Div"""
+
     return html.Div(
-        [
-            html.Button(
-                "Reset",
-                id="reset-button",
-                n_clicks=0,
-                style={
-                    "left": "65%",
-                    "top": "10%",
-                    **NM_BUTTON_STYLE,
-                },
-            ),
-            html.Button(
-                "Reset All",
-                id="reset-all-button",
-                n_clicks=0,
-                style={"top": "40%", "left": "65%", **NM_BUTTON_STYLE},
-            ),
-            html.Button(
-                id="remove-node-button",
-                children="Remove",
-                style={**NM_BUTTON_STYLE, "left": "65%", "top": "70%"},
-            ),
-            html.Div(
-                [
-                    html.Label(
-                        id="slider-label",
-                        children=NM_HEADER_LABEL,
-                    ),
-                    generate_nm_slider(
-                        "X", NM_SLIDER_ARGS, NM_SLIDER_STYLE, {"position": "relative"}
-                    ),
-                    generate_nm_slider("Y", NM_SLIDER_ARGS, NM_SLIDER_STYLE),
-                    generate_nm_slider("Z", NM_SLIDER_ARGS, NM_SLIDER_STYLE),
-                ],
-                style={
-                    "width": "60%",
-                    "left": "5%",
-                    "position": "absolute",
-                },
-            ),
-        ],
+        generate_nm_slider_div_children(disabled),
+        id="nm-sliders",
         style=NM_SLIDER_DIV_STYLE,
     )
 
@@ -446,8 +455,13 @@ def generate_nm_removal_table(removed_nodes):
     )
 
 
-def generate_nm_removal_div() -> html.Div:
-    return html.Div(id="nm-removal", style=NM_REMOVAL_DIV_STYLE)
+def generate_nm_removal_div(removed_nodes=None) -> html.Div:
+    removed = removed_nodes or {}
+    return html.Div(
+        generate_nm_removal_div_children(removed),
+        id="nm-removal",
+        style=NM_REMOVAL_DIV_STYLE,
+    )
 
 
 def generate_nm_removal_div_children(removed_nodes: dict) -> html.Div:
@@ -456,27 +470,86 @@ def generate_nm_removal_div_children(removed_nodes: dict) -> html.Div:
             [
                 html.Label(
                     "Removed Nodes",
-                    style={"left": "0%", "top": "0%", "position": "relative"},
+                    style={
+                        "left": "0%",
+                        "top": "0%",
+                        "position": "relative",
+                    },
                 ),
                 generate_nm_removal_table(removed_nodes),
             ],
             style={
                 "height": "80%",
-                "width": "45%",
+                "width": "95%",
                 "overflow-y": "auto",
             },
         ),
     ]
 
 
-def generate_nm_div() -> html.Div:
+def generate_nm_missing_row(text):
+    return html.Tr(
+        [
+            html.Td(text, style={"width": "60%"}),
+            html.Td(
+                html.Button(
+                    "Fit",
+                    id={"type": f"fit-button", "index": text},
+                    n_clicks=0,
+                    style={"width": "100%", "height": "100%"},
+                ),
+                style={"width": "40%", "height": "80%", "top": "10%"},
+            ),
+        ],
+        style=NM_TABLE_ROW_STYLE,
+    )
+
+
+def generate_nm_missing_table(missing_nodes):
+    rows = [generate_nm_missing_row(node) for node in missing_nodes]
+    return html.Table(
+        rows,
+        style=NM_REMOVAL_TABLE_STYLE,
+    )
+
+
+def generate_nm_missing_div(missing_nodes=None) -> html.Div:
+    missing = missing_nodes or {}
+    return html.Div(
+        generate_nm_missing_div_children(missing),
+        id="nm-missing",
+        style=NM_MISSING_DIV_STYLE,
+    )
+
+
+def generate_nm_missing_div_children(missing_nodes: dict) -> html.Div:
+    return [
+        html.Div(
+            [
+                html.Label(
+                    "Missing Nodes",
+                    style={"top": "0%", "position": "relative"},
+                ),
+                generate_nm_missing_table(missing_nodes),
+            ],
+            style={
+                "height": "80%",
+                "width": "95%",
+                "overflow-y": "auto",
+            },
+        ),
+    ]
+
+
+def generate_nm_div(removed_nodes=None, missing_nodes=None) -> html.Div:
     """!Generate and return the Node Manipulator Div"""
     global NM_HEADER_LABEL, NM_SLIDER_ARGS, NM_SLIDER_STYLE, NM_BUTTON_STYLE, NM_DIV_STYLE
 
     return html.Div(
         [
             generate_nm_slider_div(),
-            generate_nm_removal_div(),
+            generate_nm_removal_div(removed_nodes),
+            generate_nm_missing_div(missing_nodes),
         ],
         style=NM_DIV_STYLE,
     )

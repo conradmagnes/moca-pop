@@ -6,23 +6,13 @@
     This script should user `dash` to create an interactive web-based application that allows
     users to move nodes in 3D space and see the connected segments and joints for each node.
     
-    TODO:
-    - remove / add markers controls
-    -   handle non-existent markers from file
-    - scaling of x axis is off?
-
-
-    callbacks:
-    - remove node button clicked -> update removed_nodes, update node_positions, update node_scores
-    - removed_nodes updated (input) -> update removed node table
-    - add back node button clicked -> update removed_nodes, update node_positions, update node_scores
-
+    @author C. McCarthy
 """
 
 import argparse
 import dash
 from dash import dcc, html
-from dash.dependencies import Input, Output, State, ALL
+from dash.dependencies import Input, Output, State, ALL, MATCH
 import copy
 import os
 import json
@@ -167,7 +157,7 @@ calibrated_body.compute_segment_lengths()
 calibrated_body.compute_joint_angles()
 
 
-trial_fp = os.path.join(project_dir, "rom_calibration.c3d")
+trial_fp = os.path.join(project_dir, "trial01.c3d")
 c3d_reader = c3d_parser.get_reader(trial_fp)
 marker_trajectories = c3d_parser.get_marker_trajectories(c3d_reader)
 trial_frames = c3d_parser.get_frames(c3d_reader)
@@ -204,6 +194,11 @@ if ignore_symmetry:
 initial_positions = {m.marker: m.position for m in active_body.nodes}
 removed_nodes: dict[str, np.ndarray] = {}
 staged_for_addback: dict[str, np.ndarray] = {}
+missing_nodes = [
+    m for m in calibrated_body.get_markers() if not active_body.get_node(m).exists
+]
+button_states = {str(idx): "Fit" for idx in range(len(missing_nodes))}
+
 component_scores = {
     comp_name: {m.marker: 0 for m in calibrated_body.nodes}
     for comp_name in ["segment", "joint"]
@@ -284,6 +279,8 @@ stores = [
     dcc.Store(id="removed-nodes", data=removed_nodes),
     dcc.Store(id="staged-for-addback", data=staged_for_addback),
     dcc.Store(id="initial-positions", data=initial_positions),
+    dcc.Store(id="missing-nodes", data=missing_nodes),
+    dcc.Store(id="fit-button-states", data=button_states),
 ]
 
 # Layout of the App
@@ -291,7 +288,7 @@ app.layout = html.Div(
     [
         isa_layout.generate_ni_div(),
         isa_layout.generate_ig(),
-        isa_layout.generate_nm_div(),
+        isa_layout.generate_nm_div(removed_nodes, missing_nodes),
         isa_layout.generate_spe_div(scoring_params, removal_threshold_all),
         *stores,
     ]
@@ -359,6 +356,49 @@ def select_node(click_data):
 
 @app.callback(
     [
+        Output({"type": "fit-button", "index": ALL}, "children"),
+        Output("fit-button-states", "data"),
+    ],
+    [
+        Input({"type": "fit-button", "index": ALL}, "n_clicks"),
+        Input("reset-all-button", "n_clicks"),
+    ],
+    [
+        State("fit-button-states", "data"),
+        State("missing-nodes", "data"),
+    ],
+)
+def toggle_fit_button_text(
+    n_clicks_list, reset_all_clicks, button_states, missing_nodes: list
+):
+    if button_states is None:
+        button_states = {}
+
+    ctx = dash.callback_context
+    trigger = ctx.triggered_id if ctx.triggered_id else None
+
+    if trigger == "reset-all-button":
+        button_states = {index: "Fit" for index in button_states}
+        return ["Fit"] * len(n_clicks_list), button_states
+
+    elif isinstance(trigger, dict) and trigger.get("type") == "fit-button":
+        index = str(missing_nodes.index(trigger["index"]))
+
+        if index not in button_states or button_states[index] == "Fit":
+            button_states[index] = "Delete"
+        else:
+            button_states[index] = "Fit"
+
+        updated_texts = [
+            button_states.get(str(idx), "Fit") for idx in range(len(n_clicks_list))
+        ]
+        return updated_texts, button_states
+
+    raise dash.exceptions.PreventUpdate
+
+
+@app.callback(
+    [
         Output("removed-nodes", "data"),
         Output("staged-for-addback", "data"),
         Output("initial-positions", "data"),
@@ -384,16 +424,24 @@ def handle_node_removal(
 ):
     ctx = dash.callback_context
     updated_removed_nodes = removed_nodes.copy()
-    if ctx.triggered and ctx.triggered[0]["prop_id"] == "remove-node-button.n_clicks":
-        updated_removed_nodes[selected_node] = initial_positions[selected_node]
-        initial_positions[selected_node] = [0, 0, 0]
-        return updated_removed_nodes, dash.no_update, initial_positions
+    updated_initial_positions = initial_positions.copy()
+
+    if ctx.triggered_id == "remove-node-button":
+        if selected_node in removed_nodes:
+            raise dash.exceptions.PreventUpdate
+        updated_removed_nodes[selected_node] = updated_initial_positions[
+            selected_node
+        ].copy()
+        updated_initial_positions[selected_node] = [0, 0, 0]
+        if selected_node in staged_for_addback:
+            staged_for_addback.pop(selected_node)
+        return updated_removed_nodes, dash.no_update, updated_initial_positions
 
     for node_name, n_clicks in zip(removed_nodes.keys(), n_clicks_list):
         if n_clicks > 0:
             staged_for_addback[node_name] = removed_nodes.pop(node_name)
-            initial_positions[node_name] = staged_for_addback[node_name]
-            return removed_nodes, staged_for_addback, initial_positions
+            updated_initial_positions[node_name] = staged_for_addback[node_name].copy()
+            return removed_nodes, staged_for_addback, updated_initial_positions
 
     raise dash.exceptions.PreventUpdate
 
@@ -419,11 +467,18 @@ def update_removed_node_table(removed_nodes):
     [State("selected-node", "data"), State("node-offsets", "data")],
 )
 def update_offsets(
-    slider_x, slider_y, slider_z, reset_all_clicks, selected_node, node_offsets
+    slider_x,
+    slider_y,
+    slider_z,
+    reset_all_clicks,
+    selected_node,
+    node_offsets,
 ):
     ctx = dash.callback_context
-    if ctx.triggered and ctx.triggered[0]["prop_id"] == "reset-all-button.n_clicks":
+    trigger_id = ctx.triggered_id if ctx.triggered_id else None
+    if trigger_id == "reset-all-button":
         return {node: [0, 0, 0] for node in node_offsets}
+
     node_offsets[selected_node] = [slider_x, slider_y, slider_z]
     return node_offsets
 
@@ -434,25 +489,65 @@ def update_offsets(
         Output("slider-x", "value"),
         Output("slider-y", "value"),
         Output("slider-z", "value"),
+        Output("slider-x", "disabled"),
+        Output("slider-y", "disabled"),
+        Output("slider-z", "disabled"),
         Output("slider-label", "children"),
+        Output("remove-node-button", "disabled"),
     ],
     [
         Input("selected-node", "data"),
         Input("reset-button", "n_clicks"),
         Input("reset-all-button", "n_clicks"),
+        Input("remove-node-button", "n_clicks"),
+        Input({"type": "add-back-button", "index": ALL}, "n_clicks"),
     ],
     State("node-offsets", "data"),
+    State("removed-nodes", "data"),
+    State("missing-nodes", "data"),
 )
-def update_sliders(selected_node, reset_clicks, reset_all_clicks, node_offsets):
+def update_sliders(
+    selected_node,
+    reset_clicks,
+    reset_all_clicks,
+    remove_node_clicks,
+    add_back_clicks,
+    node_offsets,
+    removed_nodes,
+    missing_nodes,
+):
     ctx = dash.callback_context
-    if ctx.triggered:
-        triggered_button = ctx.triggered[0]["prop_id"].split(".")[0]
-        if triggered_button in ["reset-button", "reset-all-button"]:
-            return (0, 0, 0, dash.no_update)
+    trigger_id = ctx.triggered_id if ctx.triggered_id else None
+    if isinstance(trigger_id, dict) and trigger_id.get("type") == "add-back-button":
+        for n_clicks, add_back_id in zip(add_back_clicks, ctx.inputs_list[4]):
+            if n_clicks > 0 and selected_node == add_back_id["id"]["index"]:
+                return (0, 0, 0, False, False, False, dash.no_update, dash.no_update)
+        raise dash.exceptions.PreventUpdate
+    if trigger_id in ["reset-all-button", "reset_button"]:
+        return (
+            0,
+            0,
+            0,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+        )
+    if trigger_id == "remove-node-button":
+        return (0, 0, 0, True, True, True, dash.no_update, dash.no_update)
+
+    disable_sliders = [False, False, False]
+    disable_button = False
+    if selected_node in removed_nodes or selected_node in missing_nodes:
+        disable_sliders = [True, True, True]
+        disable_button = True
 
     return (
         *node_offsets[selected_node],
+        *disable_sliders,
         f"{isa_layout.NM_HEADER_LABEL}: {selected_node}",
+        disable_button,
     )
 
 
@@ -463,22 +558,28 @@ def update_sliders(selected_node, reset_clicks, reset_all_clicks, node_offsets):
         Input("node-offsets", "data"),
         Input("removed-nodes", "data"),
         Input("reset-all-button", "n_clicks"),
+        Input({"type": "fit-button", "index": ALL}, "n_clicks"),
     ],
     [
         State("selected-node", "data"),
         State("node-positions", "data"),
         State("staged-for-addback", "data"),
         State("initial-positions", "data"),
+        State("missing-nodes", "data"),
+        State("fit-button-states", "data"),
     ],
 )
 def update_node_positions(
     node_offsets,
     removed_nodes,
     reset_all_clicks,
+    fit_clicks_list,
     selected_node,
     node_positions,
     staged_for_addback,
     initial_positions,
+    missing_nodes,
+    button_states,
 ):
     ctx = dash.callback_context
     trigger = ctx.triggered[0] if ctx.triggered else None
@@ -491,6 +592,9 @@ def update_node_positions(
     prop_id = trigger["prop_id"]
 
     if "node-offsets" in prop_id:
+        if selected_node in missing_nodes:
+            raise dash.exceptions.PreventUpdate
+
         offsets = node_offsets[selected_node]
 
         initial_position = initial_positions[selected_node]
@@ -512,7 +616,7 @@ def update_node_positions(
 
     elif "reset-all-button" in prop_id:
         updated_positions = {
-            node: initial_positions[node]
+            node: np.array(initial_positions[node])
             for node in initial_positions
             if active_body.get_node(node).exists
         }
@@ -535,6 +639,28 @@ def update_node_positions(
         )
         active_body.compute_segment_residuals(calibrated_body)
         active_body.compute_joint_residuals(calibrated_body)
+
+    elif "fit-button" in prop_id:
+        trigger_id = ctx.triggered_id if ctx.triggered_id else None
+        if not isinstance(trigger_id, dict) or trigger_id.get("type") != "fit-button":
+            raise dash.exceptions.PreventUpdate
+
+        index = missing_nodes.index(trigger_id["index"])
+        n_clicks = fit_clicks_list[index]
+        node_name = missing_nodes[index]
+        key = str(index)
+
+        if n_clicks > 0 and key in button_states:
+            if button_states[key] == "Fit":
+                pos = calibrated_body.get_node(node_name).position.copy()
+            else:
+                pos = np.array([0, 0, 0])
+            updated_positions[node_name] = pos
+            active_body.update_node_positions(
+                {node_name: pos}, recompute_lengths=True, recompute_angles=True
+            )
+            active_body.compute_segment_residuals(calibrated_body)
+            active_body.compute_joint_residuals(calibrated_body)
 
     return updated_positions, True
 
@@ -650,8 +776,12 @@ def update_node_inspector(
     scoring_params = scoringParameters.ScoringParameters.model_validate_json(
         scoring_params_state
     )
-    connected_segments = active_body.get_connected_segments(selected_node)
-    connected_joints = active_body.get_connected_joints(selected_node)
+    connected_segments = active_body.get_connected_segments(
+        selected_node, only_existing=True
+    )
+    connected_joints = active_body.get_connected_joints(
+        selected_node, only_existing=True
+    )
 
     return isa_layout.generate_ni_div_children(
         selected_node,
