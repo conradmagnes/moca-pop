@@ -17,6 +17,8 @@ import copy
 import os
 import logging
 import base64
+import webbrowser
+from threading import Timer
 
 import numpy as np
 import plotly.graph_objs as go
@@ -40,6 +42,11 @@ import mocap_popy.aux_scripts.interactive_score_analyzer.layout as isa_layout
 import mocap_popy.aux_scripts.interactive_score_analyzer.helpers as isa_helpers
 
 LOGGER = logging.getLogger("InteractiveScoreAnalyzer")
+
+
+def open_browser():
+    """!Open the default web browser to the default Dash server."""
+    webbrowser.open_new("http://127.0.0.1:8050/")
 
 
 def run(
@@ -768,7 +775,8 @@ def run(
 
         raise dash.exceptions.PreventUpdate
 
-    app.run_server(debug=True)
+    Timer(1, open_browser).start()
+    app.run_server(debug=False)
 
 
 def validate_offline_args(args) -> tuple:
@@ -947,8 +955,11 @@ def load_calibrated_body(vsk_fp: str, ignore_symmetry: bool, rb_name: str) -> Ri
         choices = ["[0] Exit"] + [
             f"[{i+1}] {rb}" for i, rb in enumerate(available_rigid_bodies)
         ]
+        LOGGER.info("Available rigid bodies:\n" + "\n".join(choices))
         ui = hmi.get_user_input(
-            "Select a rigid body to analyze:", choices=choices, exit_on_quit=True
+            "Select a rigid body to analyze:",
+            choices=[(str(i),) for i in range(len(choices))],
+            exit_on_quit=True,
         )
         if ui == 0:
             LOGGER.error("Exiting.")
@@ -1006,9 +1017,13 @@ def load_active_body(
         traj.generate_node(m, frame) for m, traj in marker_trajectories.items()
     ]
     active_body = copy.deepcopy(calibrated_body)
-    active_body.update_node_positions({n.marker: n.position for n in active_nodes})
-    active_body.compute_segment_lengths()
-    active_body.compute_joint_angles()
+    active_body.update_node_positions(
+        {n.marker: n.position for n in active_nodes},
+        recompute_lengths=True,
+        recompute_angles=True,
+    )
+    active_body.compute_segment_residuals(calibrated_body)
+    active_body.compute_joint_residuals(calibrated_body)
 
     isa_helpers.best_fit_transform(calibrated_body, active_body)
 
@@ -1090,7 +1105,9 @@ def main():
     args = parser.parse_args()
 
     # mode = "w" if args.log else "off"
-    # logger.set_root_logger(name="interactive_score_analyzer", mode=mode)
+    logger.set_root_logger(name="interactive_score_analyzer", mode="off")
+    werkzeug_logger = logging.getLogger("werkzeug")
+    werkzeug_logger.setLevel(logging.ERROR)
 
     if args.verbose:
         LOGGER.setLevel(logging.DEBUG)
@@ -1122,7 +1139,7 @@ def main():
 
     calibrated_body = load_calibrated_body(vsk_fp, ignore_symmetry, rb_name)
     active_body = load_active_body(
-        calibrated_body, ignore_symmetry, rb_name, trial_fp, frame
+        calibrated_body, ignore_symmetry, calibrated_body.name, trial_fp, frame
     )
 
     scoring_params = load_scoring_parameters(args.scoring_name)
