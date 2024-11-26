@@ -3,23 +3,39 @@
     Interactive Web-based Application to Test Scoring Strategies for Rigid Body Calibration
     =======================================================================================
 
-    This script should user `dash` to create an interactive web-based application that allows
+    This script uses `dash` to create an interactive web-based application that allows
     users to move nodes in 3D space and see the connected segments and joints for each node.
+    This script opens the user's default web browser but does not require internet connection to run.
+
+    The application is used to test scoring strategies. It can be run in an 'online' or 'offline' mode.
+    In 'online' mode, the application is connected to Vicon Nexus and uses the loaded trial and subject.
+    In 'offline' mode, the application requires a project directory and subject name (vsk file).
+    A trial name can be provided optionally for both modes. When provided, the rigid body for a specific
+    frame is loaded. Otherwise, the 'active' rigid body, or that which the user manipulates, is set to a copy
+    of the 'calibrated' rigid body, or that which is loaded from the VSK file.
+
+    Users can import and export scoring parameters directly from the application, or specify the path / name
+    of a scoring parameter file when calling the script.
+
+    Run `python interactive_score_analyzer.py -h` for more information on how to use this script.
     
     @author C. McCarthy
 """
 
 import argparse
 import dash
-from dash import dcc, html
-from dash.dependencies import Input, Output, State, ALL, MATCH
 import copy
 import os
 import logging
 import base64
 import webbrowser
 from threading import Timer
+import threading
+import sys
+import signal
 
+from dash import dcc, html
+from dash.dependencies import Input, Output, State, ALL
 import numpy as np
 import plotly.graph_objs as go
 import pydantic
@@ -28,13 +44,8 @@ import mocap_popy.config.directory as directory
 import mocap_popy.config.regex as regex
 import mocap_popy.config.logger as logger
 from mocap_popy.models.rigid_body import RigidBody
-from mocap_popy.utils import (
-    rigid_body_loader,
-    c3d_parser,
-    hmi,
-    model_template_loader,
-    json_utils,
-)
+from mocap_popy.utils import c3d_parser, hmi, json_utils
+from mocap_popy.utils import rigid_body_loader, model_template_loader
 from mocap_popy.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
 
 import mocap_popy.aux_scripts.interactive_score_analyzer.constants as isa_consts
@@ -42,6 +53,8 @@ import mocap_popy.aux_scripts.interactive_score_analyzer.layout as isa_layout
 import mocap_popy.aux_scripts.interactive_score_analyzer.helpers as isa_helpers
 
 LOGGER = logging.getLogger("InteractiveScoreAnalyzer")
+
+SHUTDOWN_FLAG = threading.Event()
 
 
 def open_browser():
@@ -79,6 +92,7 @@ def run(
 
     # Create variables to store data
     stores = [
+        dcc.Store(id="score-initialized", data=False),
         dcc.Store(id="selected-node", data=active_body.get_markers()[0]),
         dcc.Store(id="node-moved", data=False),
         dcc.Store(
@@ -103,6 +117,7 @@ def run(
         ),
         dcc.Store(id="missing-nodes", data=missing_nodes),
         dcc.Store(id="fit-button-states", data=button_states),
+        dcc.Store(id="shutdown", data=False),
     ]
 
     # Create layout
@@ -112,6 +127,7 @@ def run(
             isa_layout.generate_ig(),
             isa_layout.generate_nm_div(None, missing_nodes),
             isa_layout.generate_spe_div(scoring_params, removal_threshold_all),
+            isa_layout.generate_exit_div(),
             *stores,
         ]
     )
@@ -510,6 +526,7 @@ def run(
             Output("node-scores", "data"),
             Output("max-score", "data"),
             Output("max-marker", "data"),
+            Output("score-initialized", "data"),
         ],
         [
             Input("node-positions", "data"),
@@ -524,6 +541,7 @@ def run(
             State("node-scores", "data"),
             State("max-score", "data"),
             State("max-marker", "data"),
+            State("score-initialized", "data"),
         ],
     )
     def update_scores(
@@ -537,14 +555,21 @@ def run(
         node_scores,
         max_score,
         max_marker,
+        score_initialized,
     ):
-        # if not node_moved and
         ctx = dash.callback_context
         updated_triggered = (
             ctx.triggered and ctx.triggered[0]["prop_id"] == "update-button.n_clicks"
         )
-        if not (node_moved or updated_triggered):
-            return component_scores, raw_node_scores, node_scores, max_score, max_marker
+        if not (node_moved or updated_triggered) and score_initialized:
+            return (
+                component_scores,
+                raw_node_scores,
+                node_scores,
+                max_score,
+                max_marker,
+                dash.no_update,
+            )
         scoring_params = scoringParameters.ScoringParameters.model_validate_json(
             scoring_params_state
         )
@@ -579,6 +604,7 @@ def run(
             updated_node_scores,
             updated_max_score,
             updated_max_marker,
+            True,
         )
 
     # Callback to display connected segments and joints
@@ -633,11 +659,26 @@ def run(
         )
 
     @app.callback(
-        Output("removal-threshold-label", "children"),
+        [
+            Output("removal-threshold-label", "children"),
+            Output("removal-threshold-value", "value"),
+        ],
         Input("removal-threshold-type", "value"),
+        [State("scoring-params", "data"), State("removal-threshold-all", "data")],
     )
-    def update_removal_threshold_label(removal_threshold_type: str):
-        return f"Threshold for {removal_threshold_type}:"
+    def update_removal_threshold_label(
+        removal_threshold_type: str, scoring_params_state, removal_threshold_all
+    ):
+        scoring_params = scoringParameters.ScoringParameters.model_validate_json(
+            scoring_params_state
+        )
+
+        if removal_threshold_type == "all":
+            val = removal_threshold_all
+        else:
+            val = scoring_params.removal_threshold.get(removal_threshold_type, 0)
+
+        return f"Threshold for {removal_threshold_type}:", val
 
     # Callback to update scoring parameters based on input fields
     @app.callback(
@@ -775,8 +816,30 @@ def run(
 
         raise dash.exceptions.PreventUpdate
 
+    @app.callback(
+        [
+            Output("quit-message", "children"),
+            Output("shutdown", "data"),
+        ],
+        Input("quit-button", "n_clicks"),
+    )
+    def quit_app(n_clicks):
+        ctx = dash.callback_context
+        if n_clicks and n_clicks > 0 and ctx.triggered_id == "quit-button":
+            LOGGER.info("Shutting down app...")
+            return "Shutting down app...", True
+        return "", False
+
+    @app.callback(
+        Input("shutdown", "data"),
+    )
+    def shutdown_app(shutdown):
+        if shutdown:
+            SHUTDOWN_FLAG.set()
+            os.kill(os.getpid(), signal.SIGTERM)
+
     Timer(1, open_browser).start()
-    app.run_server(debug=False)
+    app.run(debug=False)
 
 
 def validate_offline_args(args) -> tuple:
@@ -962,7 +1025,7 @@ def load_calibrated_body(vsk_fp: str, ignore_symmetry: bool, rb_name: str) -> Ri
             exit_on_quit=True,
         )
         if ui == 0:
-            LOGGER.error("Exiting.")
+            LOGGER.info("Exiting.")
             exit(0)
         rb_name = available_rigid_bodies[ui - 1]
 
@@ -1147,5 +1210,25 @@ def main():
     run(calibrated_body, active_body, scoring_params, ignore_symmetry)
 
 
+def test_main_with_args():
+    sys.argv = [
+        "--offline",
+        "-pn",
+        "shoe_stepping",
+        "-sn",
+        "subject",
+        "--rb_name",
+        "Right_Foot",
+        "-tn",
+        "trial01",
+        "--ignore_symmetry",
+        "--frame",
+        "0",
+        "-v",
+    ]
+    main()
+
+
 if __name__ == "__main__":
+    # test_main_with_args()
     main()

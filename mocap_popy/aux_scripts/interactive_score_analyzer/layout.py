@@ -11,27 +11,19 @@
         Contains sliders and button to change the position of a node or remove it.
     - (Right) Scoring Parameter Editor, 'SPE':
         Options for importing, exporting, and changing scoring parameters.
+    - (Right Bottom) Exit Button:
+        Button to exit the app.
 
     @author C. McCarthy
 """
 
-import copy
-import os
-import json
 from typing import Union
 import logging
 
-import dash
 from dash import dcc, html
-from dash.dependencies import Input, Output, State
-import numpy as np
-import plotly.graph_objs as go
 
-import mocap_popy.config.directory as directory
-import mocap_popy.config.regex as regex
-from mocap_popy.models.rigid_body import Node, Segment, Joint
-from mocap_popy.utils import rigid_body_loader
-from mocap_popy.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
+from mocap_popy.models.rigid_body import Segment, Joint
+from mocap_popy.scripts.unassign_rb_markers.scoring import scoringParameters
 from mocap_popy.aux_scripts.interactive_score_analyzer import constants as isa_consts
 
 
@@ -205,8 +197,9 @@ def generate_ni_div_children(
     threshold = scoring_params.removal_threshold.get(selected_node, 0)
 
     return [
-        html.H2(f"Selected Node: {selected_node}"),
-        html.H4("Connected Segments:"),
+        html.H2("Node Inspector", style={"margin-top": "0"}),
+        html.H3(f"Selected Node: {selected_node}"),
+        html.Label("Table 1. Connected Segments", style={"font-weight": "normal"}),
         html.Div(
             generate_table(
                 SEGMENT_HEADERS,
@@ -220,10 +213,10 @@ def generate_ni_div_children(
                 "height": "22vh",
                 "overflow-y": "auto",
                 "border": "1px solid black",
-                "margin-bottom": "2vh",
+                "margin-bottom": "5vh",
             },
         ),
-        html.H4("Connected Joints:"),
+        html.Label("Table 2. Connected Joints", style={"font-weight": "normal"}),
         html.Div(
             generate_table(
                 JOINT_HEADERS,
@@ -240,7 +233,7 @@ def generate_ni_div_children(
                 "margin-bottom": "2vh",  # Space below the table
             },
         ),
-        html.H4(f"Raw score: {raw_node_score:.2f}  |   Threshold: {threshold:.1f}"),
+        html.H4(f"Raw score: {raw_node_score:.2f}  |   Threshold: {threshold:.2f}"),
         html.H3(f"Score: {node_score:.2f}"),
         html.H3(f"Max Score: {max_score:.2f} ({max_marker})"),
     ]
@@ -310,19 +303,23 @@ NM_DIV_STYLE = {
 
 NM_SLIDER_DIV_STYLE = {
     "position": "absolute",
-    "height": "100%",
+    "height": "95%",
     "width": "40%",
     "left": "0%",
+    "border-right": "1px dashed gray",
 }
 NM_REMOVAL_DIV_STYLE = {
     "position": "absolute",
-    "height": "100%",
+    "height": "95%",
     "width": "30%",
     "left": "40%",
+    "padding-left": "1vh",
+    "padding-right": "1vh",
 }
 NM_MISSING_DIV_STYLE = {
     **NM_REMOVAL_DIV_STYLE,
     "left": "70%",
+    "border-left": "1px dashed gray",
 }
 
 NM_BUTTON_STYLE = {
@@ -344,7 +341,7 @@ NM_SLIDER_STYLE = {"width": "100%", "height": "100%"}
 NM_HEADER_LABEL = "Set Offsets"
 NM_REMOVAL_TABLE_STYLE = {
     "height": "100%",
-    "width": "100%",
+    "width": "98%",
     "display": "flex",
     "flex-direction": "column",
     "align-items": "flex-start",
@@ -482,7 +479,6 @@ def generate_nm_removal_div_children(removed_nodes: dict) -> html.Div:
                 html.Label(
                     "Removed Nodes",
                     style={
-                        "left": "0%",
                         "top": "0%",
                         "position": "relative",
                     },
@@ -569,6 +565,8 @@ def generate_nm_div(removed_nodes=None, missing_nodes=None) -> html.Div:
 SPE_DIV_STYLE = {
     **NI_DIV_STYLE,
     "left": "75vw",
+    "height": subtract_browser_margin("90vh", num_margins=2),
+    "border-bottom": "1px dashed black",
 }
 
 SPE_BUTTON_STYLE = {
@@ -762,7 +760,7 @@ def generate_removal_thresh_div(
                 style={"position": "relative", "width": "100%", "display": "flex"},
             ),
         ],
-        style={"position": "relative", "height": "16vh"},
+        style={"position": "relative", "height": "16vh", "margin-bottom": "2vh"},
     )
 
 
@@ -801,7 +799,7 @@ def generate_spe_div(
 
     return html.Div(
         [
-            html.H2("Scoring Parameters"),
+            html.H2("Scoring Parameters", style={"margin-top": "0"}),
             generate_import_export_div(),
             generate_preagg_threshold_div(scoring_params),
             generate_agg_method_div(scoring_params),
@@ -812,7 +810,7 @@ def generate_spe_div(
                 "Update",
                 id="update-button",
                 n_clicks=0,
-                style={**SPE_BUTTON_STYLE, "position": "relative", "left": "30%"},
+                style={**SPE_BUTTON_STYLE, "position": "relative", "left": "32.5%"},
             ),
             # Output for displaying updated values
             html.Div(id="output-info", style={"margin-top": "20px"}),
@@ -820,4 +818,38 @@ def generate_spe_div(
         ],
         id="sp-editor",
         style=SPE_DIV_STYLE,
+    )
+
+
+## ------ Exit Button ------ ##
+
+EXIT_DIV_STYLE = {
+    **SPE_DIV_STYLE,
+    "top": add_browser_margin(SPE_DIV_STYLE["height"], num_margins=1),
+    "height": "10vh",
+    "border-top": "0",
+    "border-bottom": "1px solid black",
+}
+
+QUIT_BUTTON_STYLE = {
+    "width": "30%",
+    "height": "50%",
+    "position": "absolute",
+    "left": "35%",
+    "top": "10%",
+    "font-size": "1.2em",
+    "background-color": "red",
+    "color": "white",
+}
+
+
+def generate_exit_div() -> html.Div:
+    return html.Div(
+        [
+            html.Button("Quit", id="quit-button", style=QUIT_BUTTON_STYLE),
+            html.Label(
+                "", id="quit-message", style={"position": "absolute", "top": "60%"}
+            ),
+        ],
+        style=EXIT_DIV_STYLE,
     )
