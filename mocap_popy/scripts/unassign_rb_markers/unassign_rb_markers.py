@@ -56,13 +56,13 @@
 
 import argparse
 import copy
+import dash
 import logging
 import os
 import sys
 import time
 from typing import Literal, Union
 import tqdm
-from threading import Thread
 import subprocess
 
 
@@ -817,7 +817,7 @@ def configure_parser():
 def run_isa_subprocess(args):
     """Wrapper for main to simulate command-line args in a thread."""
     isa_path = os.path.join(directory.AUX_DIR, "interactive_score_analyzer", "app.py")
-    run_args = ["python", isa_path] + args
+    run_args = [sys.executable, isa_path] + args
     process = subprocess.Popen(run_args)
 
     while process.poll() is None:
@@ -1079,6 +1079,5 @@ def test_main_with_args():
 
 
 if __name__ == "__main__":
-    # print("d")
     test_main_with_args()
     # main()

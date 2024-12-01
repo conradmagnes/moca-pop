@@ -7,7 +7,7 @@ import numpy as np
 
 from mocap_popy.models.marker_trajectory import MarkerTrajectory
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger("C3DParser")
 
 
 def get_reader(c3d_path: str):

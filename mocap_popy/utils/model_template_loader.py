@@ -10,7 +10,7 @@
 import logging
 import os
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger("ModelTemplateLoader")
 
 
 import mocap_popy.config.directory as directory
