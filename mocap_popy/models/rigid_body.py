@@ -24,7 +24,7 @@ import mocap_popy.config.regex as regex
 import mocap_popy.utils.string_utils as str_utils
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger("RigidBody")
 
 
 class Node:

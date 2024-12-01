@@ -8,6 +8,21 @@ Each entry has to feature the following sections: **Added**, **Changed**,
 **Removed**, and **Fixed**.
 If no item is present for a given section, have it say None.
 
+## 2024-12-01
+### Added
+- `mocap_popy/aux_scripts/interactive_score_analyzer` - launches a web-based (dash) app for visualizing and
+developing scoring strategies for rigid bodies. Includes:
+  - `app.py` - main script for launching the app
+  - `layout.py` - layout of the app
+  - `helpers.py` - helper functions for the app
+  - `constants.py` - constants used in the app
+
+### Changed
+- Added inspect flag to `unassign_rb_markers.py` to launch interactive score analyzer after scoring
+
+### Removed
+None
+
 ## 2024-11-20
 ### Added
 - `mocap_popy/utils/hmi.py` - helpers for interacting with command line

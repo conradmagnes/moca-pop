@@ -56,12 +56,14 @@
 
 import argparse
 import copy
+import dash
 import logging
 import os
 import sys
 import time
 from typing import Literal, Union
 import tqdm
+import subprocess
 
 
 import matplotlib.pyplot as plt
@@ -73,12 +75,10 @@ import mocap_popy.config.logger as logger
 from mocap_popy.models.rigid_body import RigidBody, Node
 from mocap_popy.models.marker_trajectory import MarkerTrajectory
 from mocap_popy.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
-from mocap_popy.utils import (
-    rigid_body_loader,
-    c3d_parser,
-    model_template_loader,
-)
+from mocap_popy.utils import rigid_body_loader, c3d_parser, model_template_loader
 from mocap_popy.utils import plot_utils, json_utils, dist_utils, hmi
+
+import mocap_popy.aux_scripts.interactive_score_analyzer.app as isa
 
 
 LOGGER = logging.getLogger("UnassignRigidBodyMarkers")
@@ -700,6 +700,12 @@ def configure_parser():
         action="store_true",
         help="Saves the results to a file, i.e. a record of frames each marker was removed from.",
     )
+    parser.add_argument(
+        "-i",
+        "--inspect",
+        action="store_true",
+        help="Allows user to select a frame to inspect in the Interactive Score Analyzer.",
+    )
 
     parser.add_argument(
         "-off",
@@ -806,6 +812,22 @@ def configure_parser():
     )
 
     return parser
+
+
+def run_isa_subprocess(args):
+    """Wrapper for main to simulate command-line args in a thread."""
+    LOGGER.info(
+        "Opening Interactive Score Analyzer as a subprocess. This may take a moement to load"
+    )
+
+    isa_path = os.path.join(directory.AUX_DIR, "interactive_score_analyzer", "app.py")
+    run_args = [sys.executable, isa_path] + args
+    process = subprocess.Popen(run_args)
+
+    while process.poll() is None:
+        time.sleep(0.5)
+
+    process.terminate()
 
 
 def main():
@@ -942,6 +964,48 @@ def main():
             start_frame=trial_frames[frames[0]],
         )
 
+    if any([args.plot_removals, args.plot_scores, args.plot_residuals]):
+        LOGGER.info("Plotting...")
+        block = (offline or args.preserve_markers) and not args.inspect
+        plt.show(block=block)
+
+    ## Inspect
+    if args.inspect:
+        loop_inspector = True
+        str_trial_frames = [str(f) for f in trial_frames]
+        while loop_inspector:
+            ui = hmi.get_validated_user_input(
+                "Enter frame to inspect, or 's' to skip: ",
+                exit_on_quit=True,
+                num_tries=5,
+                valid_inputs=["s"] + str_trial_frames,
+            )
+            if ui.lower() == "s":
+                loop_inspector = False
+            else:
+                trial_name = trial_fp.split(os.sep)[-1].split(".")[0]
+
+                isa_args = [
+                    "-pn",
+                    project_dir,
+                    "-sn",
+                    subject_name,
+                    "-tn",
+                    trial_name,
+                    "--frame",
+                    str(ui),
+                    "--scoring_name",
+                    args.scoring_name,
+                ]
+                if offline:
+                    isa_args.append("-off")
+                if args.verbose:
+                    isa_args.append("-v")
+
+                run_isa_subprocess(isa_args)
+
+                LOGGER.info("ISA has shutdown.")
+
     ## Remove Markers from Online Trial
     if not (offline or args.preserve_markers):
         if args.force_true:
@@ -976,11 +1040,6 @@ def main():
         write_removal_ranges_to_file(removal_ranges, output_fp)
         LOGGER.info(f"Removal ranges written to {output_fp}")
 
-    if any([args.plot_removals, args.plot_scores, args.plot_residuals]):
-        LOGGER.info("Plotting...")
-        block = offline or args.preserve_markers
-        plt.show(block=block)
-
     ## Cleanup
     LOGGER.info("Done!")
 
@@ -993,36 +1052,36 @@ def test_main_with_args():
     sys.argv = [
         "unassign_rb_markers.py",
         "-v",
-        "-s",
+        # "-s",
         "-f",
         "-p",
         "--scoring_name",
         "foot",
-        # "--offline",
+        "--offline",
         # "--output_file_type",
         # "txt",
-        # "--project_name",
-        # "shoe_stepping",
-        # "--trial_name",
-        # "trial01",
-        # "--subject_name",
-        # "subject",
+        "--project_name",
+        "shoe_stepping",
+        "--trial_name",
+        "trial01",
+        "--subject_name",
+        "subject",
         "--residual_type",
         "calib",
         "--segments_only",
         "--start_frame",
-        "21000",
+        "5000",
         "--end_frame",
-        "23000",
-        "--plot_residuals",
+        "6000",
+        # "--plot_residuals",
         "--plot_removals",
-        "--plot_scores",
+        # "--plot_scores",
+        "--inspect",
     ]
 
     main()
 
 
 if __name__ == "__main__":
-    # print("d")
-    test_main_with_args()
-    # main()
+    # test_main_with_args()
+    main()

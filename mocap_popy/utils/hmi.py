@@ -48,6 +48,7 @@ def color_string(
 def get_user_input(
     prompt: str,
     exit_on_quit: bool = False,
+    quit_keywords: list[str] = None,
     choices: list[tuple] = None,
     num_tries: int = 10,
     color_kwargs: dict = None,
@@ -56,6 +57,7 @@ def get_user_input(
 
     @param prompt Input prompt
     @param exit_on_quit Whether to exit on quit keyword
+    @param quit_keywords List of quit keywords (exits when any of these are entered)
     @param choices List of choices to check against. Choices should be tuples of accepted inputs.
                 If empty, any input is accepted and returned. Otherwise, index of choice is returned.
     @param num_tries Number of tries before returning -1.
@@ -63,6 +65,8 @@ def get_user_input(
 
     """
     global LOGGER, QUIT_KEYWORDS
+
+    quit_keywords = quit_keywords or QUIT_KEYWORDS
     default_colkw = {"color": ANSI_COLOR.BLUE, "bright": True}
     if color_kwargs is not None:
         default_colkw.update(color_kwargs)
@@ -74,7 +78,7 @@ def get_user_input(
 
     while i < num_tries:
         ui = input(color_string(f"-> {prompt}", **default_colkw))
-        if ui.lower() in QUIT_KEYWORDS:
+        if ui.lower() in quit_keywords:
             LOGGER.info("Exit key pressed. Exiting.")
             if exit_on_quit:
                 exit(0)
@@ -83,6 +87,56 @@ def get_user_input(
         for idx, c in enumerate(choices):
             if ui.lower() in c:
                 return idx
+
+        if not retry:
+            break
+
+        LOGGER.warning(f"Invalid input. Please try again.")
+        i += 1
+
+    return -1 if retry else ui
+
+
+def get_validated_user_input(
+    prompt: str,
+    exit_on_quit: bool = False,
+    quit_keywords: list[str] = None,
+    valid_inputs: list[str] = None,
+    num_tries: int = 10,
+    color_kwargs: dict = None,
+) -> str:
+    """!User input validation wrapper
+
+    @param prompt Input prompt
+    @param exit_on_quit Whether to exit on quit keyword
+    @param quit_keywords List of quit keywords (exits when any of these are entered)
+    @param valid_inputs List of valid inputs to check against. If empty, any input is accepted and returned.
+    @param num_tries Number of tries before returning -1.
+    @param color_kwargs Keyword arguments for color_string
+
+    """
+    global LOGGER, QUIT_KEYWORDS
+
+    quit_keywords = quit_keywords or QUIT_KEYWORDS
+    default_colkw = {"color": ANSI_COLOR.BLUE, "bright": True}
+    if color_kwargs is not None:
+        default_colkw.update(color_kwargs)
+
+    valid_inputs = valid_inputs or []
+
+    i = 0
+    retry = len(valid_inputs) > 0
+
+    while i < num_tries:
+        ui = input(color_string(f"-> {prompt}", **default_colkw))
+        if ui.lower() in quit_keywords:
+            LOGGER.info("Exit key pressed. Exiting.")
+            if exit_on_quit:
+                exit(0)
+            return -1
+
+        if ui.lower() in valid_inputs:
+            return ui
 
         if not retry:
             break
