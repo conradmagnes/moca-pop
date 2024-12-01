@@ -1176,6 +1176,10 @@ def main():
         LOGGER.setLevel(logging.DEBUG)
         isa_layout.LOGGER.setLevel(logging.DEBUG)
 
+    LOGGER.info(
+        "Running Interactive Score Analyzer. Press the 'Quit' button to shut down."
+    )
+
     if args.offline:
         vicon = None
         project_dir, vsk_fp, subject_name, trial_fp = validate_offline_args(args)
@@ -1193,9 +1197,8 @@ def main():
     ignore_symmetry = args.ignore_symmetry
     frame = args.frame
 
-    desc_str = "Project: {}, VSK: {}".format(
-        *[os.path.basename(x) for x in [project_dir, vsk_fp]]
-    )
+    desc_str = f"Project: {os.path.basename(project_dir)}" if project_dir else ""
+    desc_str += f", VSK: {os.path.basename(vsk_fp)}"
     if trial_fp:
         desc_str += ", Trial: {}, Frame: {}".format(os.path.basename(trial_fp), frame)
     LOGGER.info(desc_str)
