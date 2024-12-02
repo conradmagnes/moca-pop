@@ -13,6 +13,7 @@ import dataclasses
 import numpy as np
 
 from mocap_popy.models.rigid_body import Node
+from mocap_popy.utils import plot_utils
 
 
 @dataclasses.dataclass
@@ -47,3 +48,10 @@ class MarkerTrajectory:
             z=self.z[frame],
             exists=self.exists[frame],
         )
+
+    def get_perc_labeled(self) -> float:
+        return sum(self.exists) / len(self.exists)
+
+    def get_num_gaps(self) -> int:
+        lead, _ = plot_utils.get_binary_signal_edges(self.exists)
+        return len(lead) - 1
