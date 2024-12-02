@@ -1,7 +1,7 @@
 {
     "preagg_thresholding":{
         "segment": true,
-        "joint": false
+        "joint": true
     },
     "aggregation_method":{
         "segment": "mean",
@@ -11,7 +11,7 @@
         "segment": 1.0,
         "joint": 0.00278
     },
-    "removal_threshold": {
+    "removal_threshold":{
         "Right_HB": 0.05,
         "Right_HL": 0.05,
         "Right_ML": 0.05,

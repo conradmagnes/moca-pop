@@ -18,6 +18,10 @@
     of a scoring parameter file when calling the script.
 
     Run `python interactive_score_analyzer.py -h` for more information on how to use this script.
+
+    Example usage:
+    --------------
+    python .\mocap_popy\aux_scripts\interactive_score_analyzer\app.py -pn shoe_stepping -tn trial01 -sn subject --offline --frame 4000 --rb_name Right_Foot --scoring_name foot  
     
     @author C. McCarthy
 """
