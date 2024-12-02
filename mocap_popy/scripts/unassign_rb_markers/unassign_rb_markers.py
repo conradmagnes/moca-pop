@@ -37,7 +37,7 @@
     ------
     From scripts directory:
     1. Offline Mode:
-        python unassign_rb_markers.py -off -p <project_dir> -tn <trial_name> -sn <subject_name> -start <start_frame> -end <end_frame>
+        python unassign_rb_markers.py -off -pn <project_dir> -tn <trial_name> -sn <subject_name> -start <start_frame> -end <end_frame>
 
     2. Online Mode:
         python unassign_rb_markers.py -on -sn <subject_name> --start_frame <start_frame> --end end_frame <end_frame>
