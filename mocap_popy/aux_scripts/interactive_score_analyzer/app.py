@@ -47,7 +47,7 @@ import pydantic
 import mocap_popy.config.directory as directory
 import mocap_popy.config.regex as regex
 import mocap_popy.config.logger as logger
-from mocap_popy.models.rigid_body import RigidBody
+from mocap_popy.models.rigid_body import RigidBody, best_fit_transform
 from mocap_popy.utils import c3d_parser, hmi, json_utils
 from mocap_popy.utils import rigid_body_loader, model_template_loader
 from mocap_popy.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
@@ -1092,7 +1092,7 @@ def load_active_body(
     active_body.compute_segment_residuals(calibrated_body)
     active_body.compute_joint_residuals(calibrated_body)
 
-    isa_helpers.best_fit_transform(calibrated_body, active_body)
+    best_fit_transform(calibrated_body, active_body)
 
     return active_body
 
