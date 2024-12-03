@@ -43,7 +43,7 @@ import sys
 from viconnexusapi import ViconNexus
 
 import mocap_popy.config.logger as logger
-from mocap_popy.utils import vicon_quality_check as vqc
+from mocap_popy.utils import quality_check as qc
 
 LOGGER = logging.getLogger("PipelineRunner")
 
@@ -64,12 +64,12 @@ def recursive_gap_fill(
 
     run_pipeline(vicon, pipeline_args)
 
-    marker_trajectories = vqc.get_marker_trajectories(vicon, subject_name)
-    gaps = vqc.get_num_gaps(marker_trajectories)
-    labeled = vqc.get_perc_labeled(marker_trajectories)
+    marker_trajectories = qc.get_marker_trajectories(vicon, subject_name)
+    gaps = qc.get_num_gaps(marker_trajectories)
+    labeled = qc.get_perc_labeled(marker_trajectories)
 
-    vqc.log_gaps(gaps)
-    vqc.log_labeled(labeled)
+    qc.log_gaps(gaps)
+    qc.log_labeled(labeled)
 
     if sum(gaps.values()) == 0 or pass_number >= max_passes:
         return
@@ -219,12 +219,12 @@ def main():
     run_pipeline(vicon, ("ETH_NUSHU_R&L", "Shared", 200))
     run_pipeline(vicon, ("ETH_NUSHU_UnlabelRB", "Shared", 200))
 
-    marker_trajectories = vqc.get_marker_trajectories(vicon, subject_name)
-    gaps = vqc.get_num_gaps(marker_trajectories)
-    labeled = vqc.get_perc_labeled(marker_trajectories)
+    marker_trajectories = qc.get_marker_trajectories(vicon, subject_name)
+    gaps = qc.get_num_gaps(marker_trajectories)
+    labeled = qc.get_perc_labeled(marker_trajectories)
 
-    vqc.log_gaps(gaps)
-    vqc.log_labeled(labeled)
+    qc.log_gaps(gaps)
+    qc.log_labeled(labeled)
 
     if sum(gaps.values()) > 0:
         recursive_gap_fill(vicon, subject_name)

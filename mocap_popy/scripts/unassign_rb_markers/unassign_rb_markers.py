@@ -60,11 +60,8 @@ import dash
 import logging
 import os
 import sys
-import time
 from typing import Literal, Union
 import tqdm
-import subprocess
-
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -75,7 +72,7 @@ import mocap_popy.config.logger as logger
 from mocap_popy.models.rigid_body import RigidBody, Node
 from mocap_popy.models.marker_trajectory import MarkerTrajectory
 from mocap_popy.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
-from mocap_popy.utils import rigid_body_loader, c3d_parser, model_template_loader
+from mocap_popy.utils import rigid_body_loader, c3d_parser, vicon_utils
 from mocap_popy.utils import plot_utils, json_utils, dist_utils, hmi, argparse_utils
 
 import mocap_popy.aux_scripts.interactive_score_analyzer.app as isa
@@ -757,14 +754,8 @@ def main():
         marker_trajectories = c3d_parser.get_marker_trajectories(c3d_reader)
         trial_frames = c3d_parser.get_frames(c3d_reader)
     else:
-        markers = vicon.GetMarkerNames(subject_name)
-        marker_trajectories = {}
-        for m in markers:
-            x, y, z, e = vicon.GetTrajectory(subject_name, m)
-            marker_trajectories[m] = MarkerTrajectory(x, y, z, e)
-
-        trial_range = vicon.GetTrialRange()
-        trial_frames = list(range(trial_range[0], trial_range[1] + 1))
+        marker_trajectories = vicon_utils.get_marker_trajectories(vicon, subject_name)
+        trial_frames = vicon_utils.get_trial_frames(vicon)
 
     start, end = argparse_utils.validate_start_end_frames(
         args.start_frame, args.end_frame, trial_frames
