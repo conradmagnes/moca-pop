@@ -470,18 +470,6 @@ def load_scoring_parameters(name) -> scoringParameters.ScoringParameters:
     return scoringParameters.ScoringParameters()
 
 
-def get_next_filename(
-    dirpath: str, basename: str, file_ext: str, limit: int = 100
-) -> str:
-    """!Get the next available filename for a basename."""
-    if os.path.exists(os.path.join(dirpath, f"{basename}.{file_ext}")):
-        for i in range(1, limit):
-            if not os.path.exists(os.path.join(dirpath, f"{basename}_{i}.{file_ext}")):
-                basename = f"{basename}_{i}"
-                break
-    return os.path.join(dirpath, f"{basename}.{file_ext}")
-
-
 def write_removal_ranges_to_file(removal_ranges: dict, file_path: str):
     """!Write removal ranges to a file."""
     if file_path.endswith(".txt"):
@@ -904,7 +892,7 @@ def main():
         file_ext = "txt" if args.output_file_type == "txt" else "json"
         tn = trial_fp.split(os.sep)[-1].split(".")[0]
         output_fn = f"{tn}_removals"
-        output_fp = get_next_filename(project_dir, output_fn, file_ext)
+        output_fp = directory.get_next_filename(project_dir, output_fn, file_ext)
         write_removal_ranges_to_file(removal_ranges, output_fp)
         LOGGER.info(f"Removal ranges written to {output_fp}")
 

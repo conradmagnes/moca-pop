@@ -10,13 +10,26 @@ import os
 import copy
 import logging
 from typing import Union
+import sys
 
 import numpy as np
+import tqdm
+import matplotlib.pyplot as plt
 
-import mocap_popy.config.logger as logger
+from mocap_popy.config import directory, logger
 import mocap_popy.models.rigid_body as rb
+from mocap_popy.models.marker_trajectory import MarkerTrajectory
 import mocap_popy.utils.quality_check as qc
-from mocap_popy.utils import rigid_body_loader, argparse_utils, dist_utils, c3d_parser
+from mocap_popy.utils import (
+    rigid_body_loader,
+    argparse_utils,
+    dist_utils,
+    json_utils,
+    c3d_parser,
+    vicon_utils,
+    hmi,
+)
+import mocap_popy.aux_scripts.interactive_score_analyzer.app as isa
 
 
 LOGGER = logging.getLogger("SwapRBMarkers")
@@ -86,14 +99,14 @@ def validate_swap_candidates(
 
     @return True if all swaps are valid, False otherwise.
     """
-    if len(candidate_swaps) < 1:
+    if not candidate_swaps:
         return True
 
     if set(candidate_swaps.values()) == set(candidate_swaps.keys()):
-        LOGGER.debug("All swaps are valid.")
+        # LOGGER.debug("All swaps are valid.")
         return True
 
-    LOGGER.info("Some swaps are invalid. Attempting to correct.")
+    # LOGGER.info("Some swaps are invalid. Attempting to correct.")
 
     invalid_swaps = []
     shared_targets = [
@@ -104,33 +117,36 @@ def validate_swap_candidates(
     shared_targets = set(shared_targets)
 
     for target in shared_targets:
-        conflicting_markers = [
-            m for m, swap_target in candidate_swaps.items() if swap_target == target
+        conflicting_sources = [
+            source
+            for source, swap_target in candidate_swaps.items()
+            if swap_target == target
         ]
 
         target_node = fit_body.get_node(target)
         distances = {
-            m: np.linalg.norm(active_body.get_node(m).position - target_node.position)
-            for m in conflicting_markers
+            source: np.linalg.norm(
+                active_body.get_node(source).position - target_node.position
+            )
+            for source in conflicting_sources
         }
-        closest_marker = min(distances, key=distances.get)
-        for marker in conflicting_markers:
-            if marker != closest_marker:
-                candidate_swaps[marker] = None
-                invalid_swaps.append(marker)
+        closest_source = min(distances, key=distances.get)
+        for source in conflicting_sources:
+            if source != closest_source:
+                invalid_swaps.append(source)
                 LOGGER.debug(
-                    f"Removed swap for marker {marker} (conflict with {closest_marker})."
+                    f"Removed swap for marker {source} (conflict with {closest_source})."
                 )
 
-    for marker in invalid_swaps:
-        del candidate_swaps[marker]
+    for source in invalid_swaps:
+        del candidate_swaps[source]
 
     if set(candidate_swaps.values()) == set(candidate_swaps.keys()):
-        LOGGER.info("All swaps corrected and are now valid.")
+        # LOGGER.debug("All swaps corrected and are now valid.")
         return True
-    else:
-        LOGGER.info("Some swaps remain unresolved after correction.")
-        return False
+
+    # LOGGER.debug("Some swaps remain unresolved after correction.")
+    return False
 
 
 def generate_displacement_candidates(
@@ -154,19 +170,189 @@ def generate_displacement_candidates(
     @return List of candidate displacements.
     """
     candidate_displacements = []
-    displacing_swaps = {
+    displaced_sources = [
+        k for k in candidate_swaps if k not in candidate_swaps.values()
+    ]
+    candidate_displacements = displaced_sources
+
+    displaced_target_swaps = {
         k: v for k, v in candidate_swaps.items() if v not in candidate_swaps.keys()
     }
-    for key, marker in displacing_swaps.items():
-        an = active_body.get_node(marker)
-        fn = fit_body.get_node(marker)
-        if np.linalg.norm(an.position - fn.position) < distance_tolerance:
-            candidate_displacements.append(key)
-            del candidate_swaps[key]
-        else:
-            candidate_displacements.append(marker)
+    for source, target in displaced_target_swaps.items():
+        current = active_body.get_node(target)
+        candidate = active_body.get_node(source)
+        ref = fit_body.get_node(target)
+        if current.exists:
+            if np.linalg.norm(current.position - ref.position) > np.linalg.norm(
+                candidate.position - ref.position
+            ):
+                candidate_displacements.append(target)
+            else:
+                del candidate_swaps[source]
 
     return candidate_displacements
+
+
+def generate_swaps_and_displacements(
+    calibrated_rigid_bodies: dict[str, rb.RigidBody],
+    marker_trajectories: dict[str, MarkerTrajectory],
+    distance_tolerance: float,
+    trial_frames: list[int],
+    frames: list[int],
+) -> dict[str, list]:
+    """!Generate swap and displacement candidates for each rigid body in the trial.
+
+    @param calibrated_rigid_bodies Dictionary of calibrated rigid bodies.
+    @param marker_trajectories Dictionary of marker trajectories.
+    @param frames List of frames to process.
+    @param distance_tolerance Radial tolerance for swapping.
+
+    @return Dictionary of swap and displacement candidates for each rigid body, for each frame.
+    """
+    results = {}
+    greedy_search_order = {rb_name: None for rb_name in calibrated_rigid_bodies}
+    for rb_name, calib_body in calibrated_rigid_bodies.items():
+        LOGGER.info(f"Processing rigid body: {rb_name}")
+        if greedy_search_order[rb_name] is None:
+            greedy_search_order[rb_name] = generate_greedy_search_order(calib_body)
+
+        gso = greedy_search_order[rb_name]
+        rb_results = []
+        for iframe in tqdm.tqdm(frames, desc="Iterating through frames"):
+            active_nodes = [
+                traj.generate_node(m, iframe) for m, traj in marker_trajectories.items()
+            ]
+            active_body = copy.deepcopy(calib_body)
+            active_body.update_node_positions(
+                {n.marker: n.position for n in active_nodes},
+                recompute_lengths=True,
+                recompute_angles=True,
+            )
+            fit_body = copy.deepcopy(calib_body)
+            rb.best_fit_transform(fit_body, active_body)
+
+            candidate_swaps = generate_swap_candidates(
+                fit_body, active_body, distance_tolerance, gso
+            )
+
+            candidate_displacements = []
+            validated = validate_swap_candidates(candidate_swaps, fit_body, active_body)
+            if not validated:
+                candidate_displacements = generate_displacement_candidates(
+                    candidate_swaps, fit_body, active_body, distance_tolerance
+                )
+
+            rb_results.append(
+                {
+                    "frame": trial_frames[iframe],
+                    "swaps": candidate_swaps,
+                    "displacements": candidate_displacements,
+                }
+            )
+
+        results[rb_name] = rb_results
+
+    return results
+
+
+def plot_swaps(results: dict, start_frame: int = 0):
+    """!Plot the number of swaps per frame for each rigid body in the trial.
+
+    @param results Dictionary of swap and displacement candidates for each rigid body, for each frame.
+    """
+    ncols = len(results)
+    nrows = 1
+
+    fig, ax = plt.subplots(
+        nrows, ncols, figsize=(5 * ncols, 4), sharex=True, sharey=True
+    )
+
+    for i, (rb_name, res) in enumerate(results.items()):
+        num_swaps = [
+            max(len(frame["swaps"]), len(frame["displacements"])) for frame in res
+        ]
+        frames = [frame["frame"] for frame in res]
+        ax[i].plot(frames, num_swaps)
+        ax[i].set_title(rb_name)
+        ax[i].set_ylabel("Number of Swaps / Displacements")
+        ax[i].set_xlabel("Frame Index")
+
+    fig.tight_layout()
+
+    return fig, ax
+
+
+def swap_and_remove_markers_from_online_trial(
+    vicon,
+    subject_name: str,
+    results: dict,
+):
+    """!Swap and remove markers from an online trial based on the results.
+
+    @param vicon Vicon Nexus instance.
+    @param subject_name Name of the subject.
+    @param results Dictionary of swap and displacement candidates for each rigid body, for each frame.
+    """
+    for rb_name, res in results.items():
+        for frame_res in tqdm.tqdm(
+            res, desc=f"Swapping/removing markers from {rb_name}"
+        ):
+            vframe = frame_res["frame"]
+            swaps = frame_res["swaps"]
+            displacements = frame_res["displacements"]
+            if not swaps and not displacements:
+                continue
+
+            relevant_markers = set([*swaps.keys(), *swaps.values(), *displacements])
+            og_trajs = {}
+            for marker in relevant_markers:
+                x, y, z, e = vicon.GetTrajectoryAtFrame(subject_name, marker, vframe)
+                og_trajs[marker] = (x, y, z, e)
+
+            for swap_marker, target_marker in swaps.items():
+                x, y, z, e = og_trajs[swap_marker]
+                vicon.SetTrajectoryAtFrame(
+                    subject_name, target_marker, vframe, x, y, z, e
+                )
+
+            for marker in displacements:
+                x, y, z, _ = og_trajs[marker]
+                vicon.SetTrajectoryAtFrame(subject_name, marker, vframe, x, y, z, False)
+
+    LOGGER.info("Swapping and removing markers complete.")
+
+
+def generate_string_summary(frame: int, swaps: dict, displacements: list) -> str:
+    """!Generate a string summary of the swaps and displacements for a frame.
+
+    @param frame Frame number.
+    @param swaps Dictionary of swaps.
+    @param displacements List of displacements.
+    """
+    swap_str = ", ".join([f"{k} <- {v}" for k, v in swaps.items() if v is not None])
+    remove_str = ", ".join(displacements)
+    return f"Frame: {frame} | Swapped: {swap_str or 'None'} | Removed: {remove_str or 'None'}"
+
+
+def write_results_to_file(results: dict, output_fp: str, output_type: str = "txt"):
+    """!Write the results to a file.
+
+    @param results Dictionary of swap and displacement candidates for each rigid body, for each frame.
+    @param output_fp Output file path.
+    @param output_type Output file type (txt or json).
+    """
+    if output_type == "txt":
+        with open(output_fp, "w") as f:
+            for rb_name, res in results.items():
+                f.write(f"Rigid Body: {rb_name}\n")
+                for frame_res in res:
+                    if frame_res["swaps"] or frame_res["displacements"]:
+                        f.write(generate_string_summary(**frame_res) + "\n")
+
+    elif output_type == "json":
+        json_utils.export_dict_as_json(results, output_fp)
+    else:
+        LOGGER.error(f"Output type {output_type} is not supported.")
 
 
 def configure_parser():
@@ -194,7 +380,12 @@ def configure_parser():
         action="store_true",
         help="Opens a new console for logging. Useful for running script in Vicon Nexus.",
     )
-
+    parser.add_argument(
+        "-f",
+        "--force_true",
+        action="store_true",
+        help="Force continue through user prompts.",
+    )
     parser.add_argument(
         "-p",
         "--preserve_markers",
@@ -352,98 +543,111 @@ def main():
         marker_trajectories = c3d_parser.get_marker_trajectories(c3d_reader)
         trial_frames = c3d_parser.get_frames(c3d_reader)
     else:
-        markers = vicon.GetMarkerNames(subject_name)
-        marker_trajectories = {}
-        for m in markers:
-            x, y, z, e = vicon.GetTrajectory(subject_name, m)
-            marker_trajectories[m] = MarkerTrajectory(x, y, z, e)
-
-        trial_range = vicon.GetTrialRange()
-        trial_frames = list(range(trial_range[0], trial_range[1] + 1))
+        marker_trajectories = vicon_utils.get_marker_trajectories(vicon, subject_name)
+        trial_frames = vicon_utils.get_trial_frames(vicon)
 
     start, end = argparse_utils.validate_start_end_frames(
         args.start_frame, args.end_frame, trial_frames
     )
     frames = list(range(start - trial_frames[0], end - trial_frames[0] + 1))
-
-
-# %%
-vicon = ViconNexus.ViconNexus()
-# %%
-subject_name = "subject"
-distance_tolerance = 30  # mm
-
-# %%
-marker_trajectories = qc.get_marker_trajectories(vicon, subject_name)
-
-# %%
-
-project_dir, trial_name = vicon.GetTrialName()
-
-# %%
-
-vsk_fp = os.path.join(os.path.normpath(project_dir), f"{subject_name}.vsk")
-calibrated_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(vsk_fp)
-
-# %%
-rb_name = "Right_Foot"
-calibrated_body = calibrated_bodies[rb_name]
-
-# %%
-
-greedy_search_order = generate_greedy_search_order(calibrated_body)
-
-# %%
-frame = 7792
-active_nodes = [traj.generate_node(m, frame) for m, traj in marker_trajectories.items()]
-active_body = copy.deepcopy(calibrated_body)
-active_body.update_node_positions(
-    {n.marker: n.position for n in active_nodes},
-    recompute_lengths=True,
-    recompute_angles=True,
-)
-# %%
-
-active_body
-# %%
-rb.best_fit_transform(calibrated_body, active_body)
-# %%
-
-# %%
-swap_summaries = []
-# %%
-
-
-# %%
-candidate_swaps = generate_swap_candidates(
-    calibrated_body, active_body, distance_tolerance, greedy_search_order
-)
-candidate_swaps
-# %%
-
-candidate_displacements = []
-validated = validate_swap_candidates(candidate_swaps, calibrated_body, active_body)
-if not validated:
-    candidate_displacements = generate_displacement_candidates(
-        candidate_swaps, calibrated_body, active_body, distance_tolerance
+    ## Process Data
+    results = generate_swaps_and_displacements(
+        calibrated_rigid_bodies,
+        marker_trajectories,
+        distance_tolerance,
+        trial_frames,
+        frames,
     )
 
-candidate_displacements
+    ## Plotting
+    if args.plot_swaps:
+        fig, ax = plot_swaps(results, start_frame=start)
+        block = (offline or args.preserve_markers) and not args.inspect
+        plt.show(block=block)
 
-# %%
+    ## Inspect
+    if args.inspect:
+        loop_inspector = True
+        str_trial_frames = [str(f) for f in trial_frames]
+        while loop_inspector:
+            ui = hmi.get_validated_user_input(
+                "Enter frame to inspect, or 's' to skip: ",
+                exit_on_quit=True,
+                num_tries=5,
+                valid_inputs=["s"] + str_trial_frames,
+            )
+            if ui.lower() == "s":
+                loop_inspector = False
+            else:
+                trial_name = trial_fp.split(os.sep)[-1].split(".")[0]
 
-swap_str = ", ".join(
-    [f"{k} -> {v}" for k, v in candidate_swaps.items() if v is not None]
-)
-remove_str = ", ".join(candidate_displacements)
-summary = (
-    f"Frame: {frame} | Swapped: {swap_str or 'None'} | Removed: {remove_str or 'None'}"
-)
-summary
+                isa_args = [
+                    "-pn",
+                    project_dir,
+                    "-sn",
+                    subject_name,
+                    "-tn",
+                    trial_name,
+                    "--frame",
+                    str(ui),
+                ]
+                if offline:
+                    isa_args.append("-off")
+                if args.verbose:
+                    isa_args.append("-v")
 
-# %%
-candidate_swaps
+                LOGGER.info(
+                    "Opening Interactive Score Analyzer as a subprocess. This may take a moement to load"
+                )
+                isa.run_as_subprocess(isa_args)
 
-# %%
-summary
-# %%
+                LOGGER.info("ISA has shutdown.")
+
+    if not (offline or args.preserve_markers):
+        if args.force_true:
+            ui = 0
+        else:
+            ui = hmi.get_user_input(
+                "Swap and remove markers in trial? (y/n): ",
+                exit_on_quit=True,
+                choices=[hmi.YES_KEYWORDS, hmi.NO_KEYWORDS],
+                num_tries=5,
+            )
+        if ui == 0:
+            swap_and_remove_markers_from_online_trial(vicon, subject_name, results)
+
+    ## Save Results
+    if args.save_to_file:
+
+        tn = trial_fp.split(os.sep)[-1].split(".")[0]
+        output_fn = f"{tn}_swap_results"
+        output_fp = directory.get_next_filename(
+            project_dir, output_fn, args.output_file_type
+        )
+        write_results_to_file(results, output_fp, args.output_file_type)
+        LOGGER.info(f"Results saved to: {output_fp}")
+
+    LOGGER.info("Done.")
+
+
+def test_main_with_args():
+    sys.argv = [
+        "swap_rb_markers.py",
+        "-v",
+        "-l",
+        "-s",
+        "-sn",
+        "subject",
+        "--start_frame",
+        "7000",
+        "--end_frame",
+        "-1",
+        "--plot_swaps",
+        "--inspect",
+    ]
+    main()
+
+
+if __name__ == "__main__":
+    test_main_with_args()
+    # main()
