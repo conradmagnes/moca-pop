@@ -41,21 +41,40 @@ def get_perc_labeled(
 
 
 def log_gaps(num_gaps: dict[str, int]) -> None:
-    """!Log the number of gaps in each marker and the total number of gaps."""
+    """Log the number of gaps in each marker and the total number of gaps."""
     total_gaps = sum(num_gaps.values())
     sorted_gaps = sorted(num_gaps.items(), key=lambda x: x[1], reverse=True)
-    LOGGER.info(f"Number of Gaps\n==========\n")
-    LOGGER.info(f"- Total: {total_gaps} -")
-    for m, n in sorted_gaps:
-        if n > 0:
-            LOGGER.info(f"{m}: {n}")
+
+    log_output = []
+    log_output.append("\nNumber of Gaps")
+    log_output.append("=" * 20)
+    log_output.append(f"Total Gaps: {total_gaps}")
+    log_output.append("-" * 20)
+    log_output.append(f"{'Marker':<20}{'Gaps':>6}")
+    log_output.append("-" * 20)
+    for marker, gaps in sorted_gaps:
+        if gaps > 0:
+            log_output.append(f"{marker:<20}{gaps:>6}")
+    log_output.append("-" * 20)
+
+    LOGGER.info("\n".join(log_output))
 
 
-def log_labeled(perc_labeled) -> None:
-    """!Log the percentage of labeled frames in each marker and the overall percentage of labeled frames."""
+def log_labeled(perc_labeled: dict[str, float]) -> None:
+    """Log the percentage of labeled frames in each marker and the overall percentage of labeled frames."""
     total_labeled = sum(perc_labeled.values()) / len(perc_labeled)
-    sorted_labeled = sorted(perc_labeled.items(), key=lambda x: x[1], reverse=True)
-    LOGGER.info(f"\Percent Labeled\n==========\n")
-    LOGGER.info(f"- Total: {total_labeled:.2f}% -")
-    for m, p in sorted_labeled:
-        LOGGER.info(f"{m}: {p:.2f}%")
+    sorted_labeled = sorted(perc_labeled.items(), key=lambda x: x[1])
+
+    log_output = []
+    log_output.append("\nPercent Labeled")
+    log_output.append("=" * 20)
+    log_output.append(f"Overall Percentage Labeled: {total_labeled:.2f}%")
+    log_output.append("-" * 20)
+    log_output.append(f"{'Marker':<20}{'Labeled %':>10}")
+    log_output.append("-" * 20)
+    for marker, percent in sorted_labeled:
+        if percent < 100:
+            log_output.append(f"{marker:<20}{percent:>10.2f}%")
+    log_output.append("-" * 20)
+
+    LOGGER.info("\n".join(log_output))

@@ -7,7 +7,7 @@ import datetime
 import mocap_popy.config.directory as directory
 
 
-TIME_STR_FMT = "%Y-%m-%d %H:%M:%S"
+TIME_STR_FMT = "%Y%m%d_%H%M%S"
 NOW_TIMESTAMP = datetime.datetime.now()
 NOW_STRING = NOW_TIMESTAMP.strftime(TIME_STR_FMT)
 
@@ -15,6 +15,19 @@ DEFAULT_LOG_FILENAME = "mocap_popy"
 DEFAULT_LOGGING_MODE = "off"
 DEFAULT_LOGGING_FMT = "%(asctime)s [%(name)s:%(levelname)s] %(message)s"
 DEFAULT_LOGGING_LEVEL = logging.INFO
+
+LOG_DIR = directory.LOG_DIR
+
+
+def set_log_dir(log_dir: str):
+    """Set the log directory for the logger
+    This should be called before setting the root logger to ensure the log
+    file is created in the correct directory.
+    """
+    global LOG_DIR
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+    LOG_DIR = log_dir
 
 
 def set_root_logger(
@@ -71,8 +84,8 @@ def generate_file_handler(name: str = None, mode: str = None):
     basename = name or DEFAULT_LOG_FILENAME
     filename = generate_log_filename(basename)
 
-    os.makedirs(directory.LOG_DIR, exist_ok=True)
-    return logging.FileHandler(os.path.join(directory.LOG_DIR, filename), mode=mode)
+    os.makedirs(LOG_DIR, exist_ok=True)
+    return logging.FileHandler(os.path.join(LOG_DIR, filename), mode=mode)
 
 
 def generate_stream_handler():
