@@ -694,22 +694,6 @@ def configure_parser():
     return parser
 
 
-def run_isa_subprocess(args):
-    """Wrapper for main to simulate command-line args in a thread."""
-    LOGGER.info(
-        "Opening Interactive Score Analyzer as a subprocess. This may take a moement to load"
-    )
-
-    isa_path = os.path.join(directory.AUX_DIR, "interactive_score_analyzer", "app.py")
-    run_args = [sys.executable, isa_path] + args
-    process = subprocess.Popen(run_args)
-
-    while process.poll() is None:
-        time.sleep(0.5)
-
-    process.terminate()
-
-
 def main():
     """!Main script execution."""
 
@@ -892,7 +876,10 @@ def main():
                 if args.verbose:
                     isa_args.append("-v")
 
-                run_isa_subprocess(isa_args)
+                LOGGER.info(
+                    "Opening Interactive Score Analyzer as a subprocess. This may take a moement to load"
+                )
+                isa.run_as_subprocess(isa_args)
 
                 LOGGER.info("ISA has shutdown.")
 

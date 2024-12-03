@@ -37,6 +37,9 @@ from threading import Timer
 import threading
 import sys
 import signal
+import subprocess
+import time
+
 
 from dash import dcc, html
 from dash.dependencies import Input, Output, State, ALL
@@ -1215,6 +1218,19 @@ def main():
     scoring_params = load_scoring_parameters(args.scoring_name)
 
     run(calibrated_body, active_body, scoring_params, ignore_symmetry)
+
+
+def run_as_subprocess(args):
+    """Wrapper for main to simulate command-line args in a thread."""
+
+    isa_path = os.path.join(directory.AUX_DIR, "interactive_score_analyzer", "app.py")
+    run_args = [sys.executable, isa_path] + args
+    process = subprocess.Popen(run_args)
+
+    while process.poll() is None:
+        time.sleep(0.5)
+
+    process.terminate()
 
 
 def test_main_with_args():

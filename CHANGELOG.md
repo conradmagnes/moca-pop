@@ -14,11 +14,16 @@ If no item is present for a given section, have it say None.
   - `nushu_pipeline_runner.py` - main script for running the pipeline
   - `batch_runner.py` - runs the pipeline on multiple datasets
 - `vicon_quality_check.py` in `utils` - script for checking the quality of Vicon data (e.g. marker gaps, percentage of labeled data)
+- `argparse_utils.py` in `utils` - helper functions for parsing command line arguments (e.g. frame range, directories).
 
 ### Changed
 - minor docstring updates and bug fixes to Interactive Score Analyzer and Unassign Rigid Body Marker scripts.
-- updated `unassign_rb_markers.py` to include `--max_markers_to_remove` flag for specifying the maximum number of markers to remove in a single frame.
+- `unassign_rb_markers.py` updates:
+  - `--max_markers_to_remove` flag for specifying the maximum number of markers to remove in a single frame.
+  - moved offline/online args and frame range validation to separate module (`utils/argparse_utils.py`).
+  - moved 'run_isa_subprocess' function to `interactive_score_analyzer/app.py`
 - added functions to `MarkerTrajectory` model for calculating the percentage of labeled data and the number of gaps in the data.
+- moved best_fit transform functions from `interactive_score_analyzer/helpers.py` to `models/rigid_body.py`.
 
 ### Removed
 None

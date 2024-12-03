@@ -129,14 +129,14 @@ def configure_parser():
         help="Apply a Butterworth filter to the trajectories.",
     )
     parser.add_argument(
-        "--keep_open",
+        "--keep_trial_open",
         action="store_true",
         help="Keep the trial open after processing.",
     )
     parser.add_argument(
         "--_new_console_opened",
         action="store_true",
-        help="Flag to avoid infinite loop of running script in new console.",
+        help=argparse.SUPPRESS,
     )
 
     return parser
@@ -235,7 +235,7 @@ def main():
     if args.export:
         run_pipeline(vicon, ("ETH_NUSHU_Export", "Shared", 60))
 
-    if not (args.keep_open or is_open):
+    if not (args.keep_trial_open or is_open):
         LOGGER.info("Closing trial.")
         vicon.CloseTrial(30)
 
