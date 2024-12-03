@@ -103,7 +103,7 @@ class RigidBodyTemplate(BaseTemplate):
         for idx, pos in marker_positions.items():
             marker_name = self.param_index_marker_mapping.get(idx, None)
             if marker_name is None:
-                LOGGER.warning(f"Marker index {idx} not found in template {self.name}.")
+                LOGGER.debug(f"Marker index {idx} not found in template {self.name}.")
                 continue
             formatted[marker_name] = pos
 
