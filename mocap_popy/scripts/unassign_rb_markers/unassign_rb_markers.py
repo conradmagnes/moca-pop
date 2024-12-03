@@ -76,7 +76,7 @@ from mocap_popy.models.rigid_body import RigidBody, Node
 from mocap_popy.models.marker_trajectory import MarkerTrajectory
 from mocap_popy.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
 from mocap_popy.utils import rigid_body_loader, c3d_parser, model_template_loader
-from mocap_popy.utils import plot_utils, json_utils, dist_utils, hmi
+from mocap_popy.utils import plot_utils, json_utils, dist_utils, hmi, argparse_utils
 
 import mocap_popy.aux_scripts.interactive_score_analyzer.app as isa
 
@@ -446,133 +446,6 @@ def plot_scores(
     return fig, ax
 
 
-def validate_offline_args(args) -> tuple:
-    """!Validate offline mode arguments.
-    Mainly checks file paths.
-
-    @return tuple of project_dir, trial_fp, vsk_fp, subject_name
-    """
-
-    if not args.project_name or not args.trial_name or not args.subject_name:
-        LOGGER.error(
-            "Project directory, trial name, and subject name must be provided in offline mode."
-        )
-        exit(-1)
-
-    if "example_datasets" in args.project_name:
-        project_dir = os.path.join(
-            directory.DATASET_DIR, args.project_name.split(os.sep)[-1]
-        )
-    elif args.project_name in os.listdir(directory.DATASET_DIR):
-        LOGGER.info("Found project directory in example datasets.")
-        project_dir = os.path.join(directory.DATASET_DIR, args.project_name)
-    else:
-        project_dir = args.project_name
-
-    if not os.path.isdir(project_dir):
-        LOGGER.error(f"Project directory does not exist ({project_dir}). Exiting.")
-        exit(-1)
-
-    trial_fp = os.path.join(project_dir, f"{args.trial_name}.c3d")
-    if not os.path.isfile(trial_fp):
-        LOGGER.error(f"Trial file does not exist ({trial_fp}). Exiting.")
-        exit(-1)
-
-    vsk_fp = os.path.join(project_dir, f"{args.subject_name}.vsk")
-    if not os.path.isfile(vsk_fp):
-        LOGGER.error(f"VSK file was not found: {vsk_fp}. Exiting.")
-        exit(-1)
-
-    return project_dir, trial_fp, vsk_fp, args.subject_name
-
-
-def validate_online_args(args, vicon):
-    """!Validate online mode arguments.
-
-    Checks loaded trial and subject names, and vsk file.
-
-    @param vicon ViconNexus instance.
-    @return tuple of project_dir, trial_fp, vsk_fp, subject_name
-    """
-    project_dir, trial_name = vicon.GetTrialName()
-    if not trial_name:
-        LOGGER.error("Load a trial in Nexus before running 'online' mode.")
-        exit(-1)
-
-    trial_fp = os.path.join(project_dir, f"{trial_name}.c3d")
-
-    subject_names, subject_templates, subject_statuses = vicon.GetSubjectInfo()
-
-    if not args.subject_name:
-        LOGGER.info("Searching for available subject templates...")
-        candidate_subject_names = []
-        mapper = model_template_loader.load_mapper()
-        for name, template, status in zip(
-            subject_names, subject_templates, subject_statuses
-        ):
-            if template in mapper:
-                candidate_subject_names.append((name, status))
-        if len(candidate_subject_names) == 0:
-            LOGGER.error("No matching templates found for trial subjects. Exiting.")
-            exit(-1)
-        elif len(candidate_subject_names) > 1:
-            candidate_subject_names = [
-                sn for sn, status in candidate_subject_names if status
-            ]
-            if len(candidate_subject_names) > 1 or len(candidate_subject_names) == 0:
-                LOGGER.error("Could not infer subject name (multiple or none active).")
-                exit(-1)
-
-        subject_name, _ = candidate_subject_names[0]
-
-    elif args.subject_name not in subject_names:
-        LOGGER.error(f"Subject name '{args.subject_name}' not found in Nexus. Exiting.")
-        exit(-1)
-    else:
-        subject_name = args.subject_name
-
-    vsk_fp = os.path.join(project_dir, f"{subject_name}.vsk")
-    if not os.path.isfile(vsk_fp):
-        LOGGER.error(f"VSK file was not found: {vsk_fp}. Exiting.")
-        exit(-1)
-
-    return project_dir, trial_fp, vsk_fp, subject_name
-
-
-def validate_start_end_frames(args, frames: list[int]) -> tuple[int, int]:
-    """!Validate start and end frames.
-
-    @param args argparse.Namespace instance.
-    @param frames list of frame indices.
-    @return tuple of start_frame, end_frame
-    """
-    first_frame = frames[0]
-    last_frame = frames[-1]
-
-    if args.start_frame >= last_frame:
-        LOGGER.error(
-            f"Start frame {args.start_frame} is out of range ({first_frame}-{last_frame}). Exiting."
-        )
-        exit(-1)
-
-    start_frame = first_frame if args.start_frame < 0 else args.start_frame
-
-    if args.end_frame < 0:
-        end_frame = last_frame
-    elif args.end_frame < start_frame:
-        LOGGER.error(f"End frame {args.end_frame} is before start frame. Exiting.")
-        exit(-1)
-    elif args.end_frame >= last_frame:
-        LOGGER.warning(
-            f"End frame {args.end_frame} is out of range ({first_frame}-{last_frame}). Setting to end."
-        )
-        end_frame = last_frame
-    else:
-        end_frame = args.end_frame
-
-    return start_frame, end_frame
-
-
 def load_scoring_parameters(name) -> scoringParameters.ScoringParameters:
     scoring_dir = os.path.join(
         directory.SCRIPTS_DIR, "unassign_rb_markers", "scoring", "saved_parameters"
@@ -863,7 +736,11 @@ def main():
     offline = args.offline
     if offline:
         vicon = None
-        project_dir, trial_fp, vsk_fp, subject_name = validate_offline_args(args)
+        project_dir, trial_fp, vsk_fp, subject_name = (
+            argparse_utils.validate_offline_paths(
+                args.project_name, args.trial_name, args.subject_name
+            )
+        )
     else:
         try:
             from viconnexusapi import ViconNexus
@@ -872,7 +749,9 @@ def main():
             exit(-1)
 
         vicon = ViconNexus.ViconNexus()
-        project_dir, trial_fp, vsk_fp, subject_name = validate_online_args(args, vicon)
+        project_dir, trial_fp, vsk_fp, subject_name = (
+            argparse_utils.validate_online_paths(vicon, args.subject_name)
+        )
 
     LOGGER.info(
         "Project: {}, Trial: {}, VSK: {}".format(
@@ -903,7 +782,9 @@ def main():
         trial_range = vicon.GetTrialRange()
         trial_frames = list(range(trial_range[0], trial_range[1] + 1))
 
-    start, end = validate_start_end_frames(args, trial_frames)
+    start, end = argparse_utils.validate_start_end_frames(
+        args.start_frame, args.end_frame, trial_frames
+    )
     frames = list(range(start - trial_frames[0], end - trial_frames[0] + 1))
 
     ## Optional Plot of Residuals
