@@ -901,9 +901,7 @@ def main():
             marker_trajectories[m] = MarkerTrajectory(x, y, z, e)
 
         trial_range = vicon.GetTrialRange()
-        trial_frames = list(
-            range(trial_range[0], trial_range[1])
-        )  # should add one to left edge
+        trial_frames = list(range(trial_range[0], trial_range[1] + 1))
 
     start, end = validate_start_end_frames(args, trial_frames)
     frames = list(range(start - trial_frames[0], end - trial_frames[0] + 1))
