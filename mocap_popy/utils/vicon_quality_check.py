@@ -62,7 +62,9 @@ def log_gaps(num_gaps: dict[str, int]) -> None:
 
 def log_labeled(perc_labeled: dict[str, float]) -> None:
     """Log the percentage of labeled frames in each marker and the overall percentage of labeled frames."""
-    total_labeled = sum(perc_labeled.values()) / len(perc_labeled)
+    total_labeled = (
+        sum(perc_labeled.values()) / len(perc_labeled) if len(perc_labeled) > 0 else 0
+    )
     sorted_labeled = sorted(perc_labeled.items(), key=lambda x: x[1])
 
     log_output = []

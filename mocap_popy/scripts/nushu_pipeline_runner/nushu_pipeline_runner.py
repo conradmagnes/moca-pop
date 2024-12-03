@@ -133,6 +133,11 @@ def configure_parser():
         action="store_true",
         help="Keep the trial open after processing.",
     )
+    parser.add_argument(
+        "--_new_console_opened",
+        action="store_true",
+        help="Flag to avoid infinite loop of running script in new console.",
+    )
 
     return parser
 
@@ -150,7 +155,7 @@ def validate_file_paths(args, vicon):
             LOGGER.error(f"Project path does not exist: {args.project_path}")
             exit(-1)
 
-        project_path = args.project_path
+        project_path = os.path.normpath(args.project_path)
         trial_name = None
     else:
         project_path, trial_name = vicon.GetTrialName()
@@ -197,7 +202,7 @@ def main():
     start = time.time()
 
     _, is_open = vicon.GetTrialName()
-    if not is_open:
+    if not is_open or is_open != trial_name:
         LOGGER.info(f"Opening trial: {trial_path}")
         vicon.OpenTrial(trial_path, 200)
 
