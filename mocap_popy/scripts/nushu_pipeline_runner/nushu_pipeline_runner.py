@@ -1,17 +1,35 @@
 """!
     NUSHU Pipeline Runner
-    ===============
+    =====================
 
     Runs through a series of pipelines in Vicon Nexus to process motion capture data.
+    This script must be run as a standalone script. It cannot be run as a pipeline step in Vicon Nexus.
+
+    This script requires that the following pipelines are available in the Vicon Nexus project:
+        - ETH_NUSHU_R&L
+        - ETH_NUSHU_UnlabelRB
+        - ETH_NUSHU_FillGaps_Pass1
+        - ETH_NUSHU_FillGaps_Pass2
+        - ETH_NUSHU_FillGaps_Pass3
+        - ETH_NUSHU_Filter
+        - ETH_NUSHU_Export
 
     Currently hard-coded pipeline sequence for processing ETH_NUSHU trial data, consisting of the following steps:
         1) Reconstruct and Label (ETH_NUSHU_R&L)
         2) Unlabel Rigid Body Markers and Delete Unlabeled Trajectories (ETH_NUSHU_UnlabelRB)
-        3) Recursive Gap Fill (ETH_NUSHU_FillGaps_Pass 1-3)
-            i) Small gap fill with Woltering, Rigid Body, and Pattern Fill
-            ii) Medium - Large gap fill with Kinematic Gap Fill and Rigid Body Fill
-            iii) Fill remaining gaps with Kinematic Gap Fill
-        4) Butterworth Filter (ETH_NUSHU_Filter)
+        3) Recursive Gap Fill
+            i) Small gap fill with Woltering, Rigid Body, and Pattern Fill (ETH_NUSHU_FillGaps_Pass1) 
+            ii) Medium to Large gap fill with Kinematic Gap Fill and Rigid Body Fill (ETH_NUSHU_FillGaps_Pass2)
+            iii) Fill remaining gaps with Kinematic Gap Fill (ETH_NUSHU_FillGaps_Pass3)
+        4) (Optional) Butterworth Filter (ETH_NUSHU_Filter)
+        5) (Optional) Export to C3D (ETH_NUSHU_Export)
+
+    Saving the trial is not recommended as it will overwrite the original data.
+
+    Run with -h or --help for usage information.
+
+    Example Usage:
+        python nushu_pipeline_runner.py -v -l -e -pp "D:\HPL\pipeline_test_2" -tn "20241107T102745Z_semitandem-r" -sn "subject"
 
     @author: C. McCarthy
 """
@@ -79,10 +97,10 @@ def configure_parser():
         help="Log output to file.",
     )
     parser.add_argument(
-        "-s",
-        "--save",
+        "-e",
+        "--export",
         action="store_true",
-        help="Save trial upon completion.",
+        help="Export processed results as C3D.",
     )
     parser.add_argument(
         "-pp",
@@ -104,6 +122,16 @@ def configure_parser():
         type=str,
         default="",
         help="Name of the subject to process. If none, uses first subject in the trial.",
+    )
+    parser.add_argument(
+        "--filter",
+        action="store_true",
+        help="Apply a Butterworth filter to the trajectories.",
+    )
+    parser.add_argument(
+        "--keep_open",
+        action="store_true",
+        help="Keep the trial open after processing.",
     )
 
     return parser
@@ -196,11 +224,15 @@ def main():
     if sum(gaps.values()) > 0:
         recursive_gap_fill(vicon, subject_name)
 
-    run_pipeline(vicon, ("ETH_NUSHU_Filter", "Shared", 200))
+    if args.filter:
+        run_pipeline(vicon, ("ETH_NUSHU_Filter", "Shared", 60))
 
-    if args.save:
-        LOGGER.info("Saving trial.")
-        vicon.SaveTrial(30)
+    if args.export:
+        run_pipeline(vicon, ("ETH_NUSHU_Export", "Shared", 60))
+
+    if not (args.keep_open or is_open):
+        LOGGER.info("Closing trial.")
+        vicon.CloseTrial(30)
 
     LOGGER.info(
         "Pipeline complete. Total duration: {:.2f} seconds.".format(time.time() - start)
@@ -212,16 +244,16 @@ def test_main_with_args():
         "pipeline_runner.py",
         "-v",
         "-l",
-        "-pp",
-        "D:\HPL\pipeline_test_2",
-        "-tn",
-        "20241107T102745Z_semitandem-r",
-        "-sn",
-        "subject",
+        # "-pp",
+        # "D:\HPL\pipeline_test_2",
+        # "-tn",
+        # "20241107T102745Z_semitandem-r",
+        # "-sn",
+        # "subject",
     ]
     main()
 
 
 if __name__ == "__main__":
-    test_main_with_args()
-    # main()
+    # test_main_with_args()
+    main()
