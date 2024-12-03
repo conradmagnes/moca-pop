@@ -769,6 +769,13 @@ def configure_parser():
     )
 
     parser.add_argument(
+        "--max_removals_per_frame",
+        type=int,
+        default=3,
+        help="Maximum number of markers to remove per frame, per rigid body.",
+    )
+
+    parser.add_argument(
         "--start_frame",
         type=int,
         default=-1,
@@ -894,7 +901,9 @@ def main():
             marker_trajectories[m] = MarkerTrajectory(x, y, z, e)
 
         trial_range = vicon.GetTrialRange()
-        trial_frames = list(range(trial_range[0], trial_range[1]))
+        trial_frames = list(
+            range(trial_range[0], trial_range[1])
+        )  # should add one to left edge
 
     start, end = validate_start_end_frames(args, trial_frames)
     frames = list(range(start - trial_frames[0], end - trial_frames[0] + 1))
@@ -937,6 +946,7 @@ def main():
             frames,
             segments_only,
             scoring_params=scoring_params,
+            max_removals_per_frame=args.max_removals_per_frame,
         )
     else:
         removal_histories, score_histories = (
@@ -946,6 +956,7 @@ def main():
                 frames,
                 segments_only,
                 scoring_params=scoring_params,
+                max_removals_per_frame=args.max_removals_per_frame,
             )
         )
 

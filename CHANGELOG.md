@@ -8,6 +8,21 @@ Each entry has to feature the following sections: **Added**, **Changed**,
 **Removed**, and **Fixed**.
 If no item is present for a given section, have it say None.
 
+## 2024-12-03
+### Added
+- `mocap_popy/scripts/nushu_pipeline_runner` - script for running the Nushu pipeline on a given dataset.
+  - `nushu_pipeline_runner.py` - main script for running the pipeline
+  - `batch_runner.py` - runs the pipeline on multiple datasets
+- `vicon_quality_check.py` in `utils` - script for checking the quality of Vicon data (e.g. marker gaps, percentage of labeled data)
+
+### Changed
+- minor docstring updates and bug fixes to Interactive Score Analyzer and Unassign Rigid Body Marker scripts.
+- updated `unassign_rb_markers.py` to include `--max_markers_to_remove` flag for specifying the maximum number of markers to remove in a single frame.
+- added functions to `MarkerTrajectory` model for calculating the percentage of labeled data and the number of gaps in the data.
+
+### Removed
+None
+
 ## 2024-12-01
 ### Added
 - `mocap_popy/aux_scripts/interactive_score_analyzer` - launches a web-based (dash) app for visualizing and
