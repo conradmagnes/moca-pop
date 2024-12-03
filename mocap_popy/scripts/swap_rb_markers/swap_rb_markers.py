@@ -39,6 +39,7 @@ def generate_greedy_search_order(calibrated_body: rb.RigidBody) -> dict[str, lis
         greedy_search_order[n.marker] = [seg.nodes[1].marker for seg in sorted_segs]
     return greedy_search_order
 
+
 def generate_swap_candidates(
     fit_body: rb.RigidBody,
     active_body: rb.RigidBody,
@@ -85,11 +86,14 @@ def validate_swap_candidates(
 
     @return True if all swaps are valid, False otherwise.
     """
-    if set(candidate_swaps.values()) == set(candidate_swaps.keys()):
-        LOGGER.info("All swaps are valid.")
+    if len(candidate_swaps) < 1:
         return True
 
-    LOGGER.warning("Some swaps are invalid. Attempting to correct.")
+    if set(candidate_swaps.values()) == set(candidate_swaps.keys()):
+        LOGGER.debug("All swaps are valid.")
+        return True
+
+    LOGGER.info("Some swaps are invalid. Attempting to correct.")
 
     invalid_swaps = []
     shared_targets = [
@@ -125,15 +129,51 @@ def validate_swap_candidates(
         LOGGER.info("All swaps corrected and are now valid.")
         return True
     else:
-        LOGGER.warning("Some swaps remain unresolved after correction.")
+        LOGGER.info("Some swaps remain unresolved after correction.")
         return False
+
+
+def generate_displacement_candidates(
+    candidate_swaps: dict,
+    fit_body: rb.RigidBody,
+    active_body: rb.RigidBody,
+    radial_tolerance: Union[str, float],
+) -> list[str]:
+    """!Generate a list of candidate displacements based on a radial tolerance.
+
+    If a swap is staged to displace a marker (i.e. the marker has no corresponding swap in the active body),
+    the swap is reconsidered. If the displacement marker is within the radial tolerance, the swapping marker is
+    removed from the candidate swaps dictionary and considered for displacement.
+    Otherwise, the displacement marker is added to the list of candidate displacements.
+
+    @param candidate_swaps Dictionary of candidate swaps.
+    @param fit_body Calibrated rigid body.
+    @param active_body Active rigid body.
+    @param radial_tolerance Radial tolerance for swapping.
+
+    @return List of candidate displacements.
+    """
+    candidate_displacements = []
+    displacing_swaps = {
+        k: v for k, v in candidate_swaps.items() if v not in candidate_swaps.keys()
+    }
+    for key, marker in displacing_swaps.items():
+        an = active_body.get_node(marker)
+        fn = fit_body.get_node(marker)
+        if np.linalg.norm(an.position - fn.position) < radial_tolerance:
+            candidate_displacements.append(key)
+            del candidate_swaps[key]
+        else:
+            candidate_displacements.append(marker)
+
+    return candidate_displacements
 
 
 # %%
 vicon = ViconNexus.ViconNexus()
 # %%
 subject_name = "subject"
-radial_tolerance = 20  # mm
+radial_tolerance = 30  # mm
 
 # %%
 marker_trajectories = vqc.get_marker_trajectories(vicon, subject_name)
@@ -145,8 +185,6 @@ project_dir, trial_name = vicon.GetTrialName()
 # %%
 
 vsk_fp = os.path.join(os.path.normpath(project_dir), f"{subject_name}.vsk")
-# %%
-
 calibrated_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(vsk_fp)
 
 # %%
@@ -158,7 +196,7 @@ calibrated_body = calibrated_bodies[rb_name]
 greedy_search_order = generate_greedy_search_order(calibrated_body)
 
 # %%
-frame = 8277
+frame = 7792
 active_nodes = [traj.generate_node(m, frame) for m, traj in marker_trajectories.items()]
 active_body = copy.deepcopy(calibrated_body)
 active_body.update_node_positions(
@@ -173,33 +211,37 @@ active_body
 rb.best_fit_transform(calibrated_body, active_body)
 # %%
 
-calibrated_body
-# %%
-active_body
-
 # %%
 swap_summaries = []
 # %%
 
 
 # %%
-# candidate_swaps["Right_ML"] = "Right_MM"
 candidate_swaps = generate_swap_candidates(
     calibrated_body, active_body, radial_tolerance, greedy_search_order
 )
-
+candidate_swaps
 # %%
-validate_swap_candidates(candidate_swaps, calibrated_body, active_body)
+
+candidate_displacements = []
+validated = validate_swap_candidates(candidate_swaps, calibrated_body, active_body)
+if not validated:
+    candidate_displacements = generate_displacement_candidates(
+        candidate_swaps, calibrated_body, active_body, radial_tolerance
+    )
+
+candidate_displacements
 
 # %%
 
 swap_str = ", ".join(
     [f"{k} -> {v}" for k, v in candidate_swaps.items() if v is not None]
 )
-remove_str = ", ".join([k for k, v in candidate_swaps.items() if v is None])
+remove_str = ", ".join(candidate_displacements)
 summary = (
     f"Frame: {frame} | Swapped: {swap_str or 'None'} | Removed: {remove_str or 'None'}"
 )
+summary
 
 # %%
 candidate_swaps
