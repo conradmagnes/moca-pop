@@ -842,7 +842,7 @@ def main():
         file_ext = "txt" if args.output_file_type == "txt" else "json"
         tn = trial_fp.split(os.sep)[-1].split(".")[0]
         output_fn = f"{tn}_removals"
-        output_fp = directory.get_next_filename(project_dir, output_fn, file_ext)
+        output_fp = directory.get_next_filename(log_path, output_fn, file_ext)
         write_removal_ranges_to_file(removal_ranges, output_fp)
         LOGGER.info(f"Removal ranges written to {output_fp}")
 

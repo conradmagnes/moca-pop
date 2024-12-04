@@ -631,7 +631,7 @@ def main():
         tn = trial_fp.split(os.sep)[-1].split(".")[0]
         output_fn = f"{tn}_swap_results"
         output_fp = directory.get_next_filename(
-            project_dir, output_fn, args.output_file_type
+            log_path, output_fn, args.output_file_type
         )
         write_results_to_file(results, output_fp, args.output_file_type)
         LOGGER.info(f"Results saved to: {output_fp}")
