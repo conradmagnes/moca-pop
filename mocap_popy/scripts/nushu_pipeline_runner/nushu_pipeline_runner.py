@@ -7,7 +7,9 @@
 
     This script requires that the following pipelines are available in the Vicon Nexus project:
         - ETH_NUSHU_R&L
-        - ETH_NUSHU_UnlabelRB
+        - ETH_NUSHU_MocaPop_Swap
+        - ETH_NUSHU_MocaPop_Unassign
+        - ETH_NUSHU_DeleteUnlabeled
         - ETH_NUSHU_FillGaps_Pass1
         - ETH_NUSHU_FillGaps_Pass2
         - ETH_NUSHU_FillGaps_Pass3
@@ -16,13 +18,15 @@
 
     Currently hard-coded pipeline sequence for processing ETH_NUSHU trial data, consisting of the following steps:
         1) Reconstruct and Label (ETH_NUSHU_R&L)
-        2) Unlabel Rigid Body Markers and Delete Unlabeled Trajectories (ETH_NUSHU_UnlabelRB)
-        3) Recursive Gap Fill
+        2) Swap Rigid Body markers with MocaPop (ETH_NUSHU_MocaPop_Swap)
+        3) Unassign Rigid Body Markers with MocaPop (ETH_NUSHU_UnlabelRB)
+        4) Delete Unlabeled Trajectory Markers (ETH_NUSHU_DeleteUnlabeled)
+        4) Recursive Gap Fill
             i) Small gap fill with Woltering, Rigid Body, and Pattern Fill (ETH_NUSHU_FillGaps_Pass1) 
             ii) Medium to Large gap fill with Kinematic Gap Fill and Rigid Body Fill (ETH_NUSHU_FillGaps_Pass2)
             iii) Fill remaining gaps with Kinematic Gap Fill (ETH_NUSHU_FillGaps_Pass3)
-        4) (Optional) Butterworth Filter (ETH_NUSHU_Filter)
-        5) (Optional) Export to C3D (ETH_NUSHU_Export)
+        5) (Optional) Butterworth Filter (ETH_NUSHU_Filter)
+        6) (Optional) Export to C3D (ETH_NUSHU_Export)
 
     Saving the trial is not recommended as it will overwrite the original data.
 
@@ -59,6 +63,7 @@ from viconnexusapi import ViconNexus
 
 import mocap_popy.config.logger as logger
 from mocap_popy.utils import quality_check as qc
+from mocap_popy.utils import vicon_utils
 
 LOGGER = logging.getLogger("PipelineRunner")
 
@@ -79,7 +84,7 @@ def recursive_gap_fill(
 
     run_pipeline(vicon, pipeline_args)
 
-    marker_trajectories = qc.get_marker_trajectories(vicon, subject_name)
+    marker_trajectories = vicon_utils.get_marker_trajectories(vicon, subject_name)
     gaps = qc.get_num_gaps(marker_trajectories)
     labeled = qc.get_perc_labeled(marker_trajectories)
 
@@ -232,9 +237,11 @@ def main():
     LOGGER.info(f"Subject: {subject_name}")
 
     run_pipeline(vicon, ("ETH_NUSHU_R&L", "Shared", 200))
-    run_pipeline(vicon, ("ETH_NUSHU_UnlabelRB", "Shared", 200))
+    run_pipeline(vicon, ("ETH_NUSHU_MocaPop_Swap", "Shared", 200))
+    run_pipeline(vicon, ("ETH_NUSHU_MocaPop_Unassign", "Shared", 200))
+    run_pipeline(vicon, ("ETH_NUSHU_DeleteUnlabeled", "Shared", 60))
 
-    marker_trajectories = qc.get_marker_trajectories(vicon, subject_name)
+    marker_trajectories = vicon_utils.get_marker_trajectories(vicon, subject_name)
     gaps = qc.get_num_gaps(marker_trajectories)
     labeled = qc.get_perc_labeled(marker_trajectories)
 

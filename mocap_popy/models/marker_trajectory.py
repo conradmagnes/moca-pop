@@ -50,7 +50,7 @@ class MarkerTrajectory:
         )
 
     def get_perc_labeled(self) -> float:
-        return sum(self.exists) / len(self.exists)
+        return 100 * sum(self.exists) / len(self.exists)
 
     def get_num_gaps(self) -> int:
         lead, _ = plot_utils.get_binary_signal_edges(self.exists)
