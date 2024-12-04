@@ -1,3 +1,12 @@
+"""!
+    Quality Check Utilities
+    =======================
+
+    This module contains utility functions for checking the quality of marker trajectories.
+
+    @author C. McCarthy
+"""
+
 import logging
 
 
@@ -17,9 +26,7 @@ def get_perc_labeled(
     marker_trajectories: dict[str, MarkerTrajectory]
 ) -> tuple[float, dict[str, float]]:
     """!Get the percentage of labeled frames in each marker trajectory."""
-    return {
-        m: 100 * marker_trajectories[m].get_perc_labeled() for m in marker_trajectories
-    }
+    return {m: marker_trajectories[m].get_perc_labeled() for m in marker_trajectories}
 
 
 def log_gaps(num_gaps: dict[str, int]) -> None:

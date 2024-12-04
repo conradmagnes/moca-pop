@@ -19,6 +19,11 @@ def convert_to_native_types(obj):
         return obj
 
 
+def export_str_as_json(data, filename):
+    with open(filename, "w") as f:
+        json.dump(data, f, indent=4)
+
+
 def export_dict_as_json(data, filename):
     with open(filename, "w") as f:
         json.dump(convert_to_native_types(data), f, indent=4)

@@ -10,14 +10,20 @@ If no item is present for a given section, have it say None.
 
 ## 2024-12-04
 ### Added
-- `mocap_popy/scripts/swap_rb_markers` - main script for swapping and removing marker labels from a subject with rigid bodies based on distance to a reference rigid body.
+- `mocap_popy/scripts/swap_rb_markers` - main script for swapping and unassigning marker labels from a subject with rigid bodies based on distance to a reference rigid body.
+- in `mocap_popy/scripts/pipeline_runner/`:
+  - `pipeline.py` - classes for defining and running a series of Vicon Nexus pipelines. This provides a more generalized approach to running pipelines than the previous implementation.
+  - `config_builder/` - files for building pipeline configurations using 'Pipeline' and 'PipelineSeries' classes.
+  - `config/` - json representations of pipeline configurations.
 - in `mocap_popy/utils`:
   - `argparse_utils.py` - helper functions for parsing command line arguments (e.g. frame range, directories).
   - `vicon_utils.py` - helper functions for working with online Vicon data (e.g. get marker trajectories, frame numbers).
 
 ### Changed
+- `pipeline_runner` updates:
+  - rename from `nushu_pipeline_runner` to `pipeline_runner`
+  - revised implementation to leverage `pipeline.py` classes and pipeline configuration files
 - `unassign_rb_markers.py` updates:
-  - updated docstrings
   - moved file writing before inspect and removals
   - moved offline/online args and frame range validation to separate module (`utils/argparse_utils.py`).
   - moved 'get_next_filename' function to `config/directory.py`.
@@ -25,7 +31,6 @@ If no item is present for a given section, have it say None.
 - `interactive_score_analyzer` updates:
   - ported 'run_isa_subprocess' function from `unassign_rb_markers.py` to `app.py`
   - moved best_fit transform functions from `helpers.py` to `models/rigid_body.py`.
-  
 
 ### Removed
 None

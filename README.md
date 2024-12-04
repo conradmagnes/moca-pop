@@ -63,10 +63,10 @@ Otherwise, make sure all dependencies are installed in the correct python enviro
     |   `-- interactive_score_analyzer
     |-- config                          : package configuration
     |-- model_templates                 : templates for generating models
-    |   `-- json
     |-- models                          : data models
     |-- scripts                         : main scripts
-    |   |-- nushu_pipeline_runner
+    |   |-- pipeline_runner
+    |   |-- swap_rb_markers
     |   `-- unassign_rb_makers          
     `-- utils                           : utility functions
     
@@ -74,31 +74,54 @@ Otherwise, make sure all dependencies are installed in the correct python enviro
 
 ## Main Scripts
 
-### 1. `nushu_pipeline_runner.py`
+### Foreword
 
-This script executes a series of pre-defined 'ETH_NUSHU' pipelines. These include operations for reconstructing and labeling, 
-unassigning rigid body markers (see below), filling gaps, filtering (optional) and exporting processed data (optional). 
-This script must be run as a standalone script, and cannot be integrated into a Vicon Nexus pipeline (see Vicon SDK documentation for RunPipeline()).
-In future, this should be expanded to support more flexible pipeline configurations and executions.
+The scripts in this repository can be run in two modes: 'online' and 'offline'.
+- 'Online' mode refers to running the script in the Vicon Nexus software, where the script connects to the active trial in the software.
+- 'Offline' mode refers to running the script outside of the Vicon Nexus software, where the script reads data from a C3D file.
+
+The 'online' mode requires the Vicon Nexus SDK to be installed and accessible to the script. Some 'online' scripts can be integrated directly into the Vicon Nexus software as a pipeline operation.
+
+### 1. `pipeline_runner.py`
+
+This script executes a series of pre-defined Vicon Nexus pipelines. 
+It must be run online and as a standalone script while the user has the Vicon Nexus software open. A trial does not need to be active in the software for the script to run (granted the paths to the desired project and trial are specified).
+It cannot be integrated directly into the Vicon Nexus software (e.g. as a pipeline). See `RunPipeline()` in the Vicon SDK for more information.
+
+The script reads a configuration file that defines the pipelines to be executed. The `Pipeline` and `PipelineSeries` classes (in `pipeline_runner/pipeline.py`) 
+allow for the specification of conditions to check before running a pipeline, and for the specification of a series of operations to be executed in sequence.
+
+A batch runner is also provided to execute pipeline runners for several trials in the same project directory.
+
+To view usage information, check the following:
+```bash
+python mocap_popy/scripts/pipeline_runner/pipeline_runner.py --help
+python mocap_popy/scripts/pipeline_runner/batch_runner.py run --help
+```
+
+### 2. `swap_rb_markers.py`
+
+This script scans a trial after labeling to identify markers that have been mislabeled.
+This often occurs when the labeling algorithm assigns a marker to artifacts or ghost markers, causing downstream labeling issues.
+The script identifies markers that are likely mislabeled by comparing marker positions to the expected positions based on a calibrated RigidBody model.
+The script then swaps the mislabeled markers with the nearest markers in the model or unassigns them if no suitable marker is found. For more information, consult the script documentation.
+
+The script supports both 'online' and 'offline' modes, as well as direct integration into the Vicon Nexus software as a pipeline operation.
 
 To view usage information, run the following command:
 ```bash
-python mocap_popy/scripts/nushu_pipeline_runner/nushu_pipeline_runner.py --help
+python mocap_popy/scripts/swap_rb_markers/swap_rb_markers.py --help
 ```
 
-A batch runner is also provided to execute pipeline runners for several trials in the same project directory. See `batch_runner.py` for more information.
-
-### 2. `unassign_rb_makers.py`
+### 3. `unassign_rb_makers.py`
 
 This script unassigns maker labels from a subject in a Vicon Nexus trial using a RigidBody model. A RigidBody defines
 the relationship between markers in a Vicon Skeleton (vsk) model through Segments (lines) and Joints (angles). 
 The script calculates the difference in segments lengths and joint angles between a calibrated Rigid Body model and the 
 Rigid Body at each frame in the trial. Alternatively, the script can compare the Rigid Body between successive frames.
 The script scores each marker based on differences in segment lengths and joint angles, and unassigns markers with
-scores above a set threshold. The script can be run 'online', where it connects to Vicon Nexus and processes the data in
-the active trial, or 'offline', where it reads data from a C3D file.
-
-This file can be integrated into a Vicon Nexus pipeline by running the script in 'online' mode.
+scores above a set threshold. 
+The script supports both 'online' and 'offline' modes, as well as direct integration into the Vicon Nexus software as a pipeline operation.
 
 To view usage information, run the following command:
 ```bash
@@ -109,12 +132,13 @@ python mocap_popy/scripts/unassign_rb_markers/unassign_rb_markers.py --help
 
 ### 1. `interactive_score_analyzer.py`
 
-This script allows the user to interactively analyze scoring strategies used by the `unassign_rb_markers.py` script.
-The script launches a web-based Dash app that allows the user to manipulate nodes in a RigidBody model and view the
-effects on the scoring algorithm. The user can adjust scoring parameters and save the results to a file for later use.
-This script can also be run directly from `unassign_rb_markers.py` by including the `--inspect` flag.
+The script launches a web-based application ([Dash](https://dash.plotly.com/)) that allows the user to manipulate nodes in a RigidBody model and view the
+effects on the scoring algorithm. The user can adjust scoring parameters and save the results to a file for later use. RigidBody scoring is used heavily in the `unassign_rb_markers.py` script.
 
-Note, this script does not require internet access to run, as it is a local web app. It can be run both in 'online' and 'offline' modes, which refer to the source of the data being analyzed (i.e. Vicon Nexus or C3D file), and not to internet availability.
+This script can also be run directly from the `unassign_rb_markers.py` and `swap_rb_markers.py` scripts by including the `--inspect` flag.
+
+The sciprt supports both 'online' and 'offline' modes.
+Note, this script does not require internet connectivity to run, as it is a local web app (not to be confused with the 'online' and 'offline' monikers).
 
 To view usage information, run the following command:
 ```bash
@@ -123,4 +147,5 @@ python mocap_popy/aux_scripts/interactive_score_analyzer/interactive_score_analy
 
 ## Contributing
 
-When contributing to this repository, please first create a new branch (`git checkout -b <branch_name>`) and then submit a pull request. Assign the pull request to the repository owner for review.
+When contributing to this repository, please first create a new branch (`git checkout -b <branch_name>`) and then submit a pull request.
+Assign the pull request to the repository owner for review.

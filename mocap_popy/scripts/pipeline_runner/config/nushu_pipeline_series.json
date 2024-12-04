@@ -1,0 +1,132 @@
+{
+    "type": "PipelineSeries",
+    "pipelines": [
+        {
+            "type": "Pipeline",
+            "name": "ETH_NUSHU_R&L",
+            "args": {
+                "location": "Shared",
+                "timeout": 200
+            },
+            "gates": null,
+            "gate_operator": "all"
+        },
+        {
+            "type": "Pipeline",
+            "name": "ETH_NUSHU_MocaPop_Swap",
+            "args": {
+                "location": "Shared",
+                "timeout": 300
+            },
+            "gates": null,
+            "gate_operator": "all"
+        },
+        {
+            "type": "Pipeline",
+            "name": "ETH_NUSHU_MocaPop_Unassign",
+            "args": {
+                "location": "Shared",
+                "timeout": 300
+            },
+            "gates": null,
+            "gate_operator": "all"
+        },
+        {
+            "type": "Pipeline",
+            "name": "ETH_NUSHU_DeleteUnlabeled",
+            "args": {
+                "location": "Shared",
+                "timeout": 60
+            },
+            "gates": null,
+            "gate_operator": "all"
+        },
+        {
+            "type": "PipelineSeries",
+            "pipelines": [
+                {
+                    "type": "GapFillPipeline",
+                    "name": "ETH_NUSHU_FillGaps_Pass1",
+                    "args": {
+                        "location": "Shared",
+                        "timeout": 200
+                    },
+                    "gates": [
+                        {
+                            "attribute": "total_gaps",
+                            "ref_value": 0,
+                            "operator": "gt"
+                        }
+                    ],
+                    "gate_operator": "all"
+                },
+                {
+                    "type": "GapFillPipeline",
+                    "name": "ETH_NUSHU_FillGaps_Pass2",
+                    "args": {
+                        "location": "Shared",
+                        "timeout": 200
+                    },
+                    "gates": [
+                        {
+                            "attribute": "total_gaps",
+                            "ref_value": 0,
+                            "operator": "gt"
+                        }
+                    ],
+                    "gate_operator": "all"
+                },
+                {
+                    "type": "GapFillPipeline",
+                    "name": "ETH_NUSHU_FillGaps_Pass3",
+                    "args": {
+                        "location": "Shared",
+                        "timeout": 200
+                    },
+                    "gates": [
+                        {
+                            "attribute": "total_gaps",
+                            "ref_value": 0,
+                            "operator": "gt"
+                        }
+                    ],
+                    "gate_operator": "all"
+                }
+            ],
+            "break_on_skip": true
+        },
+        {
+            "type": "Pipeline",
+            "name": "ETH_NUSHU_Filter",
+            "args": {
+                "location": "Shared",
+                "timeout": 60
+            },
+            "gates": [
+                {
+                    "attribute": "filter",
+                    "ref_value": true,
+                    "operator": "eq"
+                }
+            ],
+            "gate_operator": "all"
+        },
+        {
+            "type": "Pipeline",
+            "name": "ETH_NUSHU_Export",
+            "args": {
+                "location": "Shared",
+                "timeout": 100
+            },
+            "gates": [
+                {
+                    "attribute": "export",
+                    "ref_value": true,
+                    "operator": "eq"
+                }
+            ],
+            "gate_operator": "all"
+        }
+    ],
+    "break_on_skip": false
+}

@@ -36,7 +36,15 @@ TEMPLATE_FILE_MAPPING = os.path.join(TEMPLATES_DIR, "template_file_mapping.json"
 def get_next_filename(
     dirpath: str, basename: str, file_ext: str, limit: int = 100
 ) -> str:
-    """!Get the next available filename for a basename."""
+    """!Get the next available filename for a basename.
+
+    @param dirpath Directory path
+    @param basename Basename
+    @param file_ext File extension
+    @param limit Maximum number of files (stops searching/ incrementing after this number)
+
+    @return next_filename
+    """
     if os.path.exists(os.path.join(dirpath, f"{basename}.{file_ext}")):
         for i in range(1, limit):
             if not os.path.exists(os.path.join(dirpath, f"{basename}_{i}.{file_ext}")):
