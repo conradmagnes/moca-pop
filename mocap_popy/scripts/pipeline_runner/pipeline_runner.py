@@ -1,20 +1,14 @@
 """!
-    NUSHU Pipeline Runner
+    Pipeline Runner
     =====================
 
     Runs through a series of pipelines in Vicon Nexus to process motion capture data.
     This script must be run as a standalone script. It cannot be run as a pipeline step in Vicon Nexus.
 
-    This script requires that the following pipelines are available in the Vicon Nexus project:
-        - ETH_NUSHU_R&L
-        - ETH_NUSHU_MocaPop_Swap
-        - ETH_NUSHU_MocaPop_Unassign
-        - ETH_NUSHU_DeleteUnlabeled
-        - ETH_NUSHU_FillGaps_Pass1
-        - ETH_NUSHU_FillGaps_Pass2
-        - ETH_NUSHU_FillGaps_Pass3
-        - ETH_NUSHU_Filter
-        - ETH_NUSHU_Export
+    The script extracts pipelines from a configuration file. By default, the script looks for a configuration file
+    in the `config` directory of this script's parent. 
+    See `pipeline.py` for details on pipeline and pipeline series configurations.
+
 
     Currently hard-coded pipeline sequence for processing ETH_NUSHU trial data, consisting of the following steps:
         1) Reconstruct and Label (ETH_NUSHU_R&L)

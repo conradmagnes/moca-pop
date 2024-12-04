@@ -1,16 +1,38 @@
 """!
-    Class definitions for NUSHU pipeline runner configuration.
+    Class definitions for NUSHU pipeline series configuration.
     ==========================================================
+
+    The series requires the following pipelines:
+        - ETH_NUSHU_R&L
+        - ETH_NUSHU_MocaPop_Swap
+        - ETH_NUSHU_MocaPop_Unassign
+        - ETH_NUSHU_DeleteUnlabeled
+        - ETH_NUSHU_FillGaps_Pass1
+        - ETH_NUSHU_FillGaps_Pass2
+        - ETH_NUSHU_FillGaps_Pass3
+        - ETH_NUSHU_Filter
+        - ETH_NUSHU_Export
+
+    The series consists of the following steps:
+        1) Reconstruct and Label (ETH_NUSHU_R&L)
+        2) Swap Rigid Body markers with MocaPop (ETH_NUSHU_MocaPop_Swap)
+        3) Unassign Rigid Body Markers with MocaPop (ETH_NUSHU_UnlabelRB)
+        4) Delete Unlabeled Trajectory Markers (ETH_NUSHU_DeleteUnlabeled)
+        4) Gap Fill Series (skips steps if no gaps remained)
+            i) Small gap fill with Woltering, Rigid Body, and Pattern Fill (ETH_NUSHU_FillGaps_Pass1) 
+            ii) Medium to Large gap fill with Kinematic Gap Fill and Rigid Body Fill (ETH_NUSHU_FillGaps_Pass2)
+            iii) Fill remaining gaps with Kinematic Gap Fill (ETH_NUSHU_FillGaps_Pass3)
+        5) (Optional) Butterworth Filter (ETH_NUSHU_Filter)
+        6) (Optional) Export to C3D (ETH_NUSHU_Export)
 
     @author C. McCarthy
 """
 
-# %%
 import os
 
 from mocap_popy.config import directory
 from mocap_popy.utils import json_utils
-import mocap_popy.scripts.nushu_pipeline_runner.pipeline as pipeline
+import mocap_popy.scripts.pipeline_runner.pipeline as pipeline
 
 
 rl_pipeline = pipeline.Pipeline(
@@ -79,5 +101,3 @@ output_fn = os.path.join(output_dir, "nushu_pipeline_series.json")
 
 with open(output_fn, "w") as f:
     f.write(model_json)
-
-# %%

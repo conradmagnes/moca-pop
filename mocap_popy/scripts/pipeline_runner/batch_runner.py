@@ -15,7 +15,7 @@ import time
 
 from mocap_popy.config import logger, directory
 from mocap_popy.utils import dist_utils
-import mocap_popy.scripts.nushu_pipeline_runner.nushu_pipeline_runner as npr
+import mocap_popy.scripts.pipeline_runner.pipeline_runner as npr
 
 LOGGER = logging.getLogger("BatchRunner")
 

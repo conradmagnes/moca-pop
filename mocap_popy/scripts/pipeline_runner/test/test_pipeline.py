@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import Mock
 from pydantic import ValidationError
 
-from mocap_popy.scripts.nushu_pipeline_runner.pipeline import (
+from mocap_popy.scripts.pipeline_runner.pipeline import (
     AttributeGate,
     Pipeline,
     PipelineSeries,
