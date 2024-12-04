@@ -21,9 +21,11 @@ If no item is present for a given section, have it say None.
   - moved file writing before inspect and removals
   - moved offline/online args and frame range validation to separate module (`utils/argparse_utils.py`).
   - moved 'get_next_filename' function to `config/directory.py`.
+  - write log file to project directory (create `logs` directory if it doesn't exist)
 - `interactive_score_analyzer` updates:
   - ported 'run_isa_subprocess' function from `unassign_rb_markers.py` to `app.py`
   - moved best_fit transform functions from `helpers.py` to `models/rigid_body.py`.
+  
 
 ### Removed
 None

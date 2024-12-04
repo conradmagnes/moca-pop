@@ -552,14 +552,8 @@ def main():
             close_console_on_exit=(not args.keep_console_open)
         )
 
-    mode = "w" if args.log else "off"
-    logger.set_root_logger(name="swap_rb_markers", mode=mode)
-
     if args.verbose:
         LOGGER.setLevel(logging.DEBUG)
-
-    LOGGER.info("Running `swap_rb_markers.py` ...")
-    LOGGER.debug(args)
 
     ## Validate Args
     offline = args.offline
@@ -582,6 +576,17 @@ def main():
             argparse_utils.validate_online_paths(vicon, args.subject_name)
         )
 
+    mode = "w" if args.log else "off"
+    trial_name = trial_fp.split(os.sep)[-1].split(".")[0]
+    if mode == "w":
+        log_path = os.path.join(project_dir, "logs")
+        os.makedirs(log_path, exist_ok=True)
+        logger.set_log_dir(log_path)
+
+    logger.set_root_logger(name=f"{trial_name}_swap_rb_markers", mode=mode)
+
+    LOGGER.info("Running `swap_rb_markers.py` ...")
+    LOGGER.debug(f"Arguments: {args}")
     LOGGER.info(
         "Project: {}, Trial: {}, VSK: {}".format(
             *[os.path.basename(x) for x in [project_dir, trial_fp, vsk_fp]]
