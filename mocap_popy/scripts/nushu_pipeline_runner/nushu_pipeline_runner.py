@@ -26,10 +26,25 @@
 
     Saving the trial is not recommended as it will overwrite the original data.
 
-    Run with -h or --help for usage information.
+    Usage:
+    ------
+    From scripts directory:
+    1. Offline Mode:
+        python nushu_pipeline_runner.py -off -pp <project_path> -tn <trial_name> -sn <subject_name>
 
-    Example Usage:
+    2. Online Mode:
+        python nushu_pipeline_runner.py 
+
+    Example:
         python nushu_pipeline_runner.py -v -l -e -pp "D:\HPL\pipeline_test_2" -tn "20241107T102745Z_semitandem-r" -sn "subject"
+
+    Options:
+    --------
+    Run 'python nushu_pipeline_runner.py -h' for options.
+
+    Returns:
+    --------
+    0 if successful, -1 if failed.
 
     @author: C. McCarthy
 """
@@ -242,6 +257,7 @@ def main():
     LOGGER.info(
         "Pipeline complete. Total duration: {:.2f} seconds.".format(time.time() - start)
     )
+    exit(0)
 
 
 def test_main_with_args():

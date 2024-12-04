@@ -37,10 +37,10 @@
     ------
     From scripts directory:
     1. Offline Mode:
-        python unassign_rb_markers.py -off -pn <project_dir> -tn <trial_name> -sn <subject_name> -start <start_frame> -end <end_frame>
+        python unassign_rb_markers.py -off -pn <project_name> -tn <trial_name> -sn <subject_name>
 
     2. Online Mode:
-        python unassign_rb_markers.py -on -sn <subject_name> --start_frame <start_frame> --end end_frame <end_frame>
+        python unassign_rb_markers.py -c
 
     Options:
     --------
@@ -822,6 +822,24 @@ def main():
         block = (offline or args.preserve_markers) and not args.inspect
         plt.show(block=block)
 
+    ## Write Removal Ranges to File
+    if args.save_to_file:
+        removal_ranges = {}
+        for rb_name, removals in removal_histories.items():
+            removal_ranges[rb_name] = {}
+            for i, marker in enumerate(calibrated_rigid_bodies[rb_name].get_markers()):
+                arr = np.array(removals)[:, i]
+                l, g = plot_utils.get_binary_signal_edges(arr)
+                start_end_list = [[l[i] + start, g[i] + start] for i in range(len(l))]
+                removal_ranges[rb_name][marker] = start_end_list
+
+        file_ext = "txt" if args.output_file_type == "txt" else "json"
+        tn = trial_fp.split(os.sep)[-1].split(".")[0]
+        output_fn = f"{tn}_removals"
+        output_fp = directory.get_next_filename(project_dir, output_fn, file_ext)
+        write_removal_ranges_to_file(removal_ranges, output_fp)
+        LOGGER.info(f"Removal ranges written to {output_fp}")
+
     ## Inspect
     if args.inspect:
         loop_inspector = True
@@ -877,24 +895,6 @@ def main():
             remove_markers_from_online_trial(
                 vicon, subject_name, removal_histories, calibrated_rigid_bodies, start
             )
-
-    ## Write Removal Ranges to File
-    if args.save_to_file:
-        removal_ranges = {}
-        for rb_name, removals in removal_histories.items():
-            removal_ranges[rb_name] = {}
-            for i, marker in enumerate(calibrated_rigid_bodies[rb_name].get_markers()):
-                arr = np.array(removals)[:, i]
-                l, g = plot_utils.get_binary_signal_edges(arr)
-                start_end_list = [[l[i] + start, g[i] + start] for i in range(len(l))]
-                removal_ranges[rb_name][marker] = start_end_list
-
-        file_ext = "txt" if args.output_file_type == "txt" else "json"
-        tn = trial_fp.split(os.sep)[-1].split(".")[0]
-        output_fn = f"{tn}_removals"
-        output_fp = directory.get_next_filename(project_dir, output_fn, file_ext)
-        write_removal_ranges_to_file(removal_ranges, output_fp)
-        LOGGER.info(f"Removal ranges written to {output_fp}")
 
     ## Cleanup
     LOGGER.info("Done!")

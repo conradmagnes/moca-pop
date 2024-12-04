@@ -2,6 +2,47 @@
     Swap RB Markers
     =================
 
+    This script is used to determine whether markers of a rigid body were swapped after labeling.
+
+    The script will compare the positions of the markers in the active rigid body to the calibrated rigid body (after best fit).
+    If a marker (source) is not within a specified distance tolerance of its corresponding marker in the calibrated body,
+    but is within the distance tolerance of another marker (target) in the calibrated body, it is considered a candidate for swapping.
+    Swaps are arranged as {source: target}, where the target marker will be moved to the position of the source marker.
+
+    Swaps are validated and refined to ensure markers are correctly assigned. One-directional swaps (i.e. when the source or target of a swap 
+    is not also a target or source of another swap) may result in marker displacements (removals).
+    The following steps determine valid swaps and displacements:
+        1) If a target is included in a swap for multiple sources, the swap with the closest source to the calibrated body is maintained.
+            Other swaps are invalidated.
+        2) Any source of a swap that is not also a target of another swap is considered a candidate for displacement.
+        3) Targets in one-directional swaps are compared to the current marker position.
+            If the new source position will bring the target closer to the calibrated position, the swap is maintained.
+            Otherwise, the target is considered a candidate for displacement if it's source is not already displaced.
+
+    The script can optionally plot the number of swaps and displacements per frame for each rigid body in the trial.
+    The results can be saved to a file, and the user can inspect individual frames using the Interactive Score Analyzer.
+    
+    This script can be run in both 'online' and 'offline' modes. 
+    In online mode, the script will connect to Vicon Nexus and process the active trial. The user will be prompted to swap and remove markers.
+    In offline mode, the script will process a C3D file. The file will not be modified, and the user will not be prompted to swap or remove markers.
+
+    Usage:
+    ------
+    From scripts directory:
+    1. Offline Mode:
+        python swap_rb_markers.py -off -pn <project_dir> -tn <trial_name> -sn <subject_name> --distance_tolerance 30 --start_frame 0 --end_frame -1
+
+    2. Online Mode:
+        python swap_rb_markers.py -sn <subject_name>
+
+    Options:
+    --------
+    Run `python swap_rb_markers.py -h` for options.
+
+    Returns:
+    --------
+    0 if successful, -1 if an error occurred.
+
     @author: C. McCarthy
 """
 
@@ -19,16 +60,8 @@ import matplotlib.pyplot as plt
 from mocap_popy.config import directory, logger
 import mocap_popy.models.rigid_body as rb
 from mocap_popy.models.marker_trajectory import MarkerTrajectory
-import mocap_popy.utils.quality_check as qc
-from mocap_popy.utils import (
-    rigid_body_loader,
-    argparse_utils,
-    dist_utils,
-    json_utils,
-    c3d_parser,
-    vicon_utils,
-    hmi,
-)
+from mocap_popy.utils import hmi, argparse_utils, dist_utils, json_utils
+from mocap_popy.utils import rigid_body_loader, c3d_parser, vicon_utils
 import mocap_popy.aux_scripts.interactive_score_analyzer.app as isa
 
 
@@ -59,14 +92,19 @@ def generate_swap_candidates(
     distance_tolerance: Union[str, float],
     greedy_search_order: dict = None,
 ) -> dict:
-    """!Generate a dictionary of candidate swaps based on a radial tolerance.
+    """!Generate a dictionary of candidate swaps based on a distance tolerance.
 
-    If a marker is not within the radial tolerance of its corresponding marker in the fit body,
-    the marker is considered a candidate for swapping.
+    If a marker is not within the distance tolerance of its corresponding marker in the fit body,
+    but is within the distance tolerance of another marker in the fit body, it is considered a candidate for swapping.
+
+    Greedy search (based on increasing distance) is used to find the closest marker in the fit body to swap with.
+
+    The resulting dictionary is of the form: {original_marker: swap_marker}, or {source: target}.
+    The position of the target marker will be moved to the position of the source marker.
 
     @param fit_body Calibrated rigid body, (after best fit to the active body).
     @param active_body Active rigid body.
-    @param distance_tolerance Radial tolerance for swapping.
+    @param distance_tolerance Distance tolerance for swapping.
 
     @return Dictionary of candidate swaps.
     """
@@ -153,19 +191,20 @@ def generate_displacement_candidates(
     candidate_swaps: dict,
     fit_body: rb.RigidBody,
     active_body: rb.RigidBody,
-    distance_tolerance: Union[str, float],
 ) -> list[str]:
-    """!Generate a list of candidate displacements based on a radial tolerance.
+    """!Generate a list of candidate displacements based on swap candidates.
 
-    If a swap is staged to displace a marker (i.e. the marker has no corresponding swap in the active body),
-    the swap is reconsidered. If the displacement marker is within the radial tolerance, the swapping marker is
-    removed from the candidate swaps dictionary and considered for displacement.
-    Otherwise, the displacement marker is added to the list of candidate displacements.
+    If the source of a swap is not also a target of another swap, the source is considered a candidate for displacement.
+    In other words, the target will be moved to the source, and the source will be removed.
+
+    If the target of a swap is not also a source of another swap, it is compared to the current marker position.
+    If the new source position will bring the target closer to the calibrated position, the swap is maintained.
+    Otherwise, the target is considered a candidate for displacement if it's source is not already displaced.
+    In other words, a swap target should only adopt a new position if it improves the overall fit.
 
     @param candidate_swaps Dictionary of candidate swaps.
     @param fit_body Calibrated rigid body.
     @param active_body Active rigid body.
-    @param distance_tolerance Radial tolerance for swapping.
 
     @return List of candidate displacements.
     """
@@ -215,8 +254,9 @@ def generate_swaps_and_displacements(
 
     @param calibrated_rigid_bodies Dictionary of calibrated rigid bodies.
     @param marker_trajectories Dictionary of marker trajectories.
-    @param frames List of frames to process.
-    @param distance_tolerance Radial tolerance for swapping.
+    @param distance_tolerance distance tolerance for swapping.
+    @param trial_frames List of trial frame numbers.
+    @param frames List of frame indecies to process.
 
     @return Dictionary of swap and displacement candidates for each rigid body, for each frame.
     """
@@ -250,7 +290,7 @@ def generate_swaps_and_displacements(
             validated = validate_swap_candidates(candidate_swaps, fit_body, active_body)
             if not validated:
                 candidate_displacements = generate_displacement_candidates(
-                    candidate_swaps, fit_body, active_body, distance_tolerance
+                    candidate_swaps, fit_body, active_body
                 )
 
             rb_results.append(
@@ -266,7 +306,7 @@ def generate_swaps_and_displacements(
     return results
 
 
-def plot_swaps(results: dict, start_frame: int = 0):
+def plot_swaps(results: dict):
     """!Plot the number of swaps per frame for each rigid body in the trial.
 
     @param results Dictionary of swap and displacement candidates for each rigid body, for each frame.
@@ -299,6 +339,9 @@ def swap_and_remove_markers_from_online_trial(
     results: dict,
 ):
     """!Swap and remove markers from an online trial based on the results.
+
+    For swap candidates {source:target}, the target marker will be moved to the position of the source marker.
+    Markers in the displacement list will be removed from the trial.
 
     @param vicon Vicon Nexus instance.
     @param subject_name Name of the subject.
@@ -562,6 +605,7 @@ def main():
         args.start_frame, args.end_frame, trial_frames
     )
     frames = list(range(start - trial_frames[0], end - trial_frames[0] + 1))
+
     ## Process Data
     results = generate_swaps_and_displacements(
         calibrated_rigid_bodies,
@@ -573,9 +617,19 @@ def main():
 
     ## Plotting
     if args.plot_swaps:
-        fig, ax = plot_swaps(results, start_frame=start)
+        fig, ax = plot_swaps(results)
         block = (offline or args.preserve_markers) and not args.inspect
         plt.show(block=block)
+
+    ## Save Results
+    if args.save_to_file:
+        tn = trial_fp.split(os.sep)[-1].split(".")[0]
+        output_fn = f"{tn}_swap_results"
+        output_fp = directory.get_next_filename(
+            project_dir, output_fn, args.output_file_type
+        )
+        write_results_to_file(results, output_fp, args.output_file_type)
+        LOGGER.info(f"Results saved to: {output_fp}")
 
     ## Inspect
     if args.inspect:
@@ -615,6 +669,7 @@ def main():
 
                 LOGGER.info("ISA has shutdown.")
 
+    ## Swap and Remove Markers
     if not (offline or args.preserve_markers):
         if args.force_true:
             ui = 0
@@ -628,18 +683,8 @@ def main():
         if ui == 0:
             swap_and_remove_markers_from_online_trial(vicon, subject_name, results)
 
-    ## Save Results
-    if args.save_to_file:
-
-        tn = trial_fp.split(os.sep)[-1].split(".")[0]
-        output_fn = f"{tn}_swap_results"
-        output_fp = directory.get_next_filename(
-            project_dir, output_fn, args.output_file_type
-        )
-        write_results_to_file(results, output_fp, args.output_file_type)
-        LOGGER.info(f"Results saved to: {output_fp}")
-
-    LOGGER.info("Done.")
+    LOGGER.info("Done!")
+    exit(0)
 
 
 def test_main_with_args():
@@ -661,5 +706,5 @@ def test_main_with_args():
 
 
 if __name__ == "__main__":
-    test_main_with_args()
-    # main()
+    # test_main_with_args()
+    main()
