@@ -107,7 +107,7 @@ def validate_file_paths(vicon, project_name, trial_name):
         LOGGER.error(f"Trial not found: {trial_path}")
         exit(-1)
 
-    return config_path, project_dir, valid_trial_name, trial_path
+    return project_dir, valid_trial_name, trial_path
 
 
 def configure_parser():

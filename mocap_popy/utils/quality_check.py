@@ -1,3 +1,12 @@
+"""!
+    Quality Check Utilities
+    =======================
+
+    This module contains utility functions for checking the quality of marker trajectories.
+
+    @author C. McCarthy
+"""
+
 import logging
 
 

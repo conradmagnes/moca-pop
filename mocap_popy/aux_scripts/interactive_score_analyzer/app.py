@@ -1,5 +1,4 @@
-"""
-
+"""!
     Interactive Web-based Application to Test Scoring Strategies for Rigid Body Calibration
     =======================================================================================
 

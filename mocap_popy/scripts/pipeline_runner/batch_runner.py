@@ -14,6 +14,9 @@
 
     python batch_runner.py -cn <config_name> -pp <project_path> --exclude <trials_to_exclude>
 
+    Example: 
+        python batch_runner.py -v -l -cn "nushu_pipeline_series.json" -pp "D:\HPL\pipeline_test_2" --include "20241107T104520Z_step-forward-r,20241107T104613Z_step-forward-l"
+
     Options:
     --------
     Run 'python batch_runner.py -h' for options.
@@ -146,7 +149,7 @@ def main():
         directory.SCRIPTS_DIR, "pipeline_runner", "pipeline_runner.py"
     )
 
-    common_args = ["-e", "-cn", config_path, "-pn", project_path]
+    common_args = ["--export", "-cn", config_path, "-pn", project_path]
     if args.verbose:
         common_args.append("-v")
     if args.log:
@@ -163,7 +166,7 @@ def main():
         process = dist_utils.run_python_script(
             pipeline_runner_path,
             script_args,
-            # verbose=args.verbose,
+            verbose=args.verbose,
             python_path=sys.executable,
         )
         if process.returncode != 0:
