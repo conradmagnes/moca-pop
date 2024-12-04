@@ -8,6 +8,26 @@ Each entry has to feature the following sections: **Added**, **Changed**,
 **Removed**, and **Fixed**.
 If no item is present for a given section, have it say None.
 
+## 2024-12-04
+### Added
+- `mocap_popy/scripts/swap_rb_markers` - main script for swapping and removing marker labels from a subject with rigid bodies based on distance to a reference rigid body.
+- in `mocap_popy/utils`:
+  - `argparse_utils.py` - helper functions for parsing command line arguments (e.g. frame range, directories).
+  - `vicon_utils.py` - helper functions for working with online Vicon data (e.g. get marker trajectories, frame numbers).
+
+### Changed
+- `unassign_rb_markers.py` updates:
+  - updated docstrings
+  - moved file writing before inspect and removals
+  - moved offline/online args and frame range validation to separate module (`utils/argparse_utils.py`).
+  - moved 'get_next_filename' function to `config/directory.py`.
+- `interactive_score_analyzer` updates:
+  - ported 'run_isa_subprocess' function from `unassign_rb_markers.py` to `app.py`
+  - moved best_fit transform functions from `helpers.py` to `models/rigid_body.py`.
+
+### Removed
+None
+
 ## 2024-12-03
 ### Added
 - `mocap_popy/scripts/nushu_pipeline_runner` - script for running the Nushu pipeline on a given dataset.
@@ -15,17 +35,12 @@ If no item is present for a given section, have it say None.
   - `batch_runner.py` - runs the pipeline on multiple datasets
 - in `mocap_popy/utils`:
   - `quality_check.py` - script for checking the quality of Vicon data (e.g. marker gaps, percentage of labeled data)
-  - `argparse_utils.py` - helper functions for parsing command line arguments (e.g. frame range, directories).
-  - `vicon_utils.py` - helper functions for working with online Vicon data (e.g. get marker trajectories, frame numbers).
 
 ### Changed
 - minor docstring updates and bug fixes to Interactive Score Analyzer and Unassign Rigid Body Marker scripts.
 - `unassign_rb_markers.py` updates:
   - `--max_markers_to_remove` flag for specifying the maximum number of markers to remove in a single frame.
-  - moved offline/online args and frame range validation to separate module (`utils/argparse_utils.py`).
-  - moved 'run_isa_subprocess' function to `interactive_score_analyzer/app.py`
 - added functions to `MarkerTrajectory` model for calculating the percentage of labeled data and the number of gaps in the data.
-- moved best_fit transform functions from `interactive_score_analyzer/helpers.py` to `models/rigid_body.py`.
 
 ### Removed
 None
