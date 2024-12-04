@@ -106,7 +106,7 @@ def validate_swap_candidates(
         # LOGGER.debug("All swaps are valid.")
         return True
 
-    # LOGGER.info("Some swaps are invalid. Attempting to correct.")
+    # LOGGER.debug("Some swaps are invalid. Attempting to correct.")
 
     invalid_swaps = []
     shared_targets = [
@@ -134,9 +134,9 @@ def validate_swap_candidates(
         for source in conflicting_sources:
             if source != closest_source:
                 invalid_swaps.append(source)
-                LOGGER.debug(
-                    f"Removed swap for marker {source} (conflict with {closest_source})."
-                )
+                # LOGGER.debug(
+                #     f"Removed swap for marker {source} (conflict with {closest_source})."
+                # )
 
     for source in invalid_swaps:
         del candidate_swaps[source]
@@ -175,18 +175,29 @@ def generate_displacement_candidates(
     ]
     candidate_displacements = displaced_sources
 
+    if candidate_displacements:
+        new_active = copy.deepcopy(active_body)
+        refit_body = copy.deepcopy(fit_body)
+        for cd in candidate_displacements:
+            new_active.remove_node(cd)
+        rb.best_fit_transform(refit_body, new_active)
+    else:
+        refit_body = fit_body
+        new_active = active_body
+
     displaced_target_swaps = {
         k: v for k, v in candidate_swaps.items() if v not in candidate_swaps.keys()
     }
     for source, target in displaced_target_swaps.items():
-        current = active_body.get_node(target)
-        candidate = active_body.get_node(source)
-        ref = fit_body.get_node(target)
+        current = new_active.get_node(target)
+        candidate = new_active.get_node(source)
+        ref = refit_body.get_node(target)
         if current.exists:
             if np.linalg.norm(current.position - ref.position) > np.linalg.norm(
                 candidate.position - ref.position
             ):
-                candidate_displacements.append(target)
+                if source not in candidate_displacements:
+                    candidate_displacements.append(target)
             else:
                 del candidate_swaps[source]
 
@@ -345,6 +356,7 @@ def write_results_to_file(results: dict, output_fp: str, output_type: str = "txt
         with open(output_fp, "w") as f:
             for rb_name, res in results.items():
                 f.write(f"Rigid Body: {rb_name}\n")
+                f.write("=" * 50 + "\n")
                 for frame_res in res:
                     if frame_res["swaps"] or frame_res["displacements"]:
                         f.write(generate_string_summary(**frame_res) + "\n")
@@ -639,11 +651,11 @@ def test_main_with_args():
         "-sn",
         "subject",
         "--start_frame",
-        "7000",
+        "0",
         "--end_frame",
         "-1",
         "--plot_swaps",
-        "--inspect",
+        # "--inspect",
     ]
     main()
 
