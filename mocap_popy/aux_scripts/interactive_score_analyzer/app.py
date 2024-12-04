@@ -1095,7 +1095,11 @@ def load_active_body(
     active_body.compute_segment_residuals(calibrated_body)
     active_body.compute_joint_residuals(calibrated_body)
 
-    best_fit_transform(calibrated_body, active_body)
+    fit_res = best_fit_transform(calibrated_body, active_body)
+    if not fit_res:
+        LOGGER.error(
+            "Could not find a best fit transform (too few markers). Calibrated body will not be transformed."
+        )
 
     return active_body
 

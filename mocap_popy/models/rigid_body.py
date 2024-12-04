@@ -1020,15 +1020,19 @@ class RigidBody:
         )
 
 
-def best_fit_transform(target_body: RigidBody, active_body: RigidBody):
+def best_fit_transform(target_body: RigidBody, active_body: RigidBody) -> bool:
     """
     Computes the optimal rigid transformation (rotation + translation) that aligns
     points A with points B using the Kabsch algorithm.
 
     @param target_body Rigid body to be transformed.
     @param active_body Rigid body to be used as the reference.
+    @return Whether the transformation was successful.
     """
     active_nodes = [n for n in active_body.nodes if n.exists]
+    if len(active_nodes) < 3:
+        return False
+
     active_markers = [n.marker for n in active_nodes]
     active_positions = np.array([n.position for n in active_nodes])
     calibrated_positions = np.array(
@@ -1069,7 +1073,7 @@ def best_fit_transform(target_body: RigidBody, active_body: RigidBody):
         {m: p for m, p in zip(target_body.get_markers(), transformed_points)}
     )
 
-    return
+    return True
 
 
 def apply_transform(points, R, t):

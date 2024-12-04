@@ -219,7 +219,14 @@ def generate_displacement_candidates(
         refit_body = copy.deepcopy(fit_body)
         for cd in candidate_displacements:
             new_active.remove_node(cd)
-        rb.best_fit_transform(refit_body, new_active)
+        fit_res = rb.best_fit_transform(refit_body, new_active)
+        if not fit_res:
+            displaced_target_sources = [
+                k for k, v in candidate_swaps.items() if v not in candidate_swaps.keys()
+            ]
+            for source in displaced_target_sources:
+                del candidate_swaps[source]
+            return candidate_displacements
     else:
         refit_body = fit_body
         new_active = active_body
@@ -280,7 +287,10 @@ def generate_swaps_and_displacements(
                 recompute_angles=True,
             )
             fit_body = copy.deepcopy(calib_body)
-            rb.best_fit_transform(fit_body, active_body)
+            fit_res = rb.best_fit_transform(fit_body, active_body)
+            if not fit_res:
+                LOGGER.warning(f"Best fit failed for frame {trial_frames[iframe]}.")
+                continue
 
             candidate_swaps = generate_swap_candidates(
                 fit_body, active_body, distance_tolerance, gso
@@ -629,7 +639,7 @@ def main():
     ## Save Results
     if args.save_to_file:
         tn = trial_fp.split(os.sep)[-1].split(".")[0]
-        output_fn = f"{tn}_swap_results"
+        output_fn = f"{tn}_swap-results"
         output_fp = directory.get_next_filename(
             log_path, output_fn, args.output_file_type
         )
