@@ -1,0 +1,32 @@
+{
+    "type": "PipelineSeries",
+    "pipelines": [
+        {
+            "type": "Pipeline",
+            "name": "Reconstruct And Label",
+            "args": {
+                "location": "",
+                "timeout": 200
+            },
+            "gates": null,
+            "gate_operator": "all"
+        },
+        {
+            "type": "GapFillPipeline",
+            "name": "Auto Intelligent Gap Fill",
+            "args": {
+                "location": "",
+                "timeout": 200
+            },
+            "gates": [
+                {
+                    "attribute": "total_gaps",
+                    "ref_value": 0,
+                    "operator": "gt"
+                }
+            ],
+            "gate_operator": "all"
+        }
+    ],
+    "break_on_skip": false
+}

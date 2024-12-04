@@ -10,35 +10,24 @@
     See `pipeline.py` for details on pipeline and pipeline series configurations.
 
 
-    Currently hard-coded pipeline sequence for processing ETH_NUSHU trial data, consisting of the following steps:
-        1) Reconstruct and Label (ETH_NUSHU_R&L)
-        2) Swap Rigid Body markers with MocaPop (ETH_NUSHU_MocaPop_Swap)
-        3) Unassign Rigid Body Markers with MocaPop (ETH_NUSHU_UnlabelRB)
-        4) Delete Unlabeled Trajectory Markers (ETH_NUSHU_DeleteUnlabeled)
-        4) Recursive Gap Fill
-            i) Small gap fill with Woltering, Rigid Body, and Pattern Fill (ETH_NUSHU_FillGaps_Pass1) 
-            ii) Medium to Large gap fill with Kinematic Gap Fill and Rigid Body Fill (ETH_NUSHU_FillGaps_Pass2)
-            iii) Fill remaining gaps with Kinematic Gap Fill (ETH_NUSHU_FillGaps_Pass3)
-        5) (Optional) Butterworth Filter (ETH_NUSHU_Filter)
-        6) (Optional) Export to C3D (ETH_NUSHU_Export)
+    By default, the trial will not be saved after the runner finishes (unless explicitly set to do so by a pipeline step).
+    Saving the trial is not recommended as it can overwrite the original data (e.g. if filtering the data).
+    Exporting the data to C3D is recommended instead.
 
-    Saving the trial is not recommended as it will overwrite the original data.
+    Some common operations (e.g. filtering, exporting) are added as flags to the script. This allows the user to
+    easily add these steps to the series with a gate check for the flag.
 
     Usage:
     ------
-    From scripts directory:
-    1. Offline Mode:
-        python nushu_pipeline_runner.py -off -pp <project_path> -tn <trial_name> -sn <subject_name>
 
-    2. Online Mode:
-        python nushu_pipeline_runner.py 
+    python pipeline_runner.py -off -cn <config_name> -pp <project_path> -tn <trial_name> -sn <subject_name>
 
     Example:
-        python nushu_pipeline_runner.py -v -l -e -pp "D:\HPL\pipeline_test_2" -tn "20241107T102745Z_semitandem-r" -sn "subject"
+        python pipeline_runner.py -v -l -e -pp "D:\HPL\pipeline_test_2" -tn "20241107T102745Z_semitandem-r" -sn "subject"
 
     Options:
     --------
-    Run 'python nushu_pipeline_runner.py -h' for options.
+    Run 'python pipeline_runner.py -h' for options.
 
     Returns:
     --------
@@ -54,41 +43,71 @@ import time
 import sys
 
 from viconnexusapi import ViconNexus
+import pydantic
 
-import mocap_popy.config.logger as logger
-from mocap_popy.utils import quality_check as qc
-from mocap_popy.utils import vicon_utils
+from mocap_popy.config import logger, directory
+
+from mocap_popy.utils import json_utils, vicon_utils, quality_check as qc
+import mocap_popy.scripts.pipeline_runner.pipeline as pipeline
 
 LOGGER = logging.getLogger("PipelineRunner")
 
 
-def run_pipeline(vicon: ViconNexus.ViconNexus, pipeline_args):
-    LOGGER.info(f"Running pipeline: {pipeline_args[0]}")
-    start = time.time()
-    vicon.RunPipeline(*pipeline_args)
-    end = time.time()
-    LOGGER.info(f"Pipeline {pipeline_args[0]} completed in {end - start:.2f} seconds.")
+def validate_config_name(config_name):
+    """!Validate the configuration name.
+
+    @param config_name Path to the configuration file (or name if in default location)
+
+    @return config_path
+    """
+    if not config_name:
+        LOGGER.error("Configuration name not provided.")
+        exit(-1)
+
+    if os.path.exists(config_name):
+        config_path = os.path.normpath(config_name)
+    else:
+        config_dir = os.path.join(directory.SCRIPTS_DIR, "pipeline_runner", "config")
+        cn = config_name.split(".")[0]
+        config_path = os.path.join(config_dir, f"{cn}.json")
+        if not os.path.exists(config_path):
+            LOGGER.error(f"Configuration file not found: {config_name}")
+            exit(-1)
+
+    return config_path
 
 
-def recursive_gap_fill(
-    vicon, subject_name, pass_number=1, max_passes=3, timeout: int = 200
-):
-    pipeline_name = f"ETH_NUSHU_FillGaps_Pass{pass_number}"
-    pipeline_args = (pipeline_name, "Shared", timeout)
+def validate_file_paths(vicon, project_name, trial_name):
+    """!Validate the project name and trial name.
 
-    run_pipeline(vicon, pipeline_args)
+    @param config_name Path to the configuration file (or name if in default location)
+    @param project_name Path to the project directory
+    @param trial_name Name of the trial to process
+    @param vicon ViconNexus instance
 
-    marker_trajectories = vicon_utils.get_marker_trajectories(vicon, subject_name)
-    gaps = qc.get_num_gaps(marker_trajectories)
-    labeled = qc.get_perc_labeled(marker_trajectories)
+    @return project_dir, trial_name, trial_path
+    """
+    if project_name:
+        if not os.path.exists(project_name):
+            LOGGER.error(f"Path to the project {project_name} does not exist.")
+            exit(-1)
 
-    qc.log_gaps(gaps)
-    qc.log_labeled(labeled)
+        project_dir = os.path.normpath(project_name)
+        valid_trial_name = None
+    else:
+        project_dir, valid_trial_name = vicon.GetTrialName()
 
-    if sum(gaps.values()) == 0 or pass_number >= max_passes:
-        return
+    if not trial_name and not valid_trial_name:
+        _, valid_trial_name = vicon.GetTrialName()
+    elif trial_name:
+        valid_trial_name = trial_name
 
-    recursive_gap_fill(vicon, subject_name, pass_number + 1, max_passes, timeout)
+    trial_path = os.path.join(project_dir, valid_trial_name)
+    if not os.path.exists(trial_path + ".system"):
+        LOGGER.error(f"Trial not found: {trial_path}")
+        exit(-1)
+
+    return config_path, project_dir, valid_trial_name, trial_path
 
 
 def configure_parser():
@@ -96,7 +115,6 @@ def configure_parser():
     parser = argparse.ArgumentParser(
         description="Unassign rigid body markers based on residual scores."
     )
-
     parser.add_argument(
         "-v",
         "--verbose",
@@ -111,14 +129,15 @@ def configure_parser():
         help="Log output to file.",
     )
     parser.add_argument(
-        "-e",
-        "--export",
-        action="store_true",
-        help="Export processed results as C3D.",
+        "-cn",
+        "--config_name",
+        type=str,
+        required=True,
+        help="Name of the pipeline series configuration.",
     )
     parser.add_argument(
-        "-pp",
-        "--project_path",
+        "-pn",
+        "--project_name",
         type=str,
         default="",
         help="Path to the project directory. If none, uses active trial in Vicon Nexus.",
@@ -138,6 +157,11 @@ def configure_parser():
         help="Name of the subject to process. If none, uses first subject in the trial.",
     )
     parser.add_argument(
+        "--export",
+        action="store_true",
+        help="Export processed results as C3D.",
+    )
+    parser.add_argument(
         "--filter",
         action="store_true",
         help="Apply a Butterworth filter to the trajectories.",
@@ -148,43 +172,17 @@ def configure_parser():
         help="Keep the trial open after processing.",
     )
     parser.add_argument(
+        "--hide_quality_check",
+        action="store_true",
+        help="Hide the quality check output for gap fill pipelines.",
+    )
+    parser.add_argument(
         "--_new_console_opened",
         action="store_true",
         help=argparse.SUPPRESS,
     )
 
     return parser
-
-
-def validate_file_paths(args, vicon):
-    """!Validate the project path and trial name.
-
-    @param args Argument parser arguments
-    @param vicon ViconNexus instance
-
-    @return project_path, trial_name, trial_path
-    """
-    if args.project_path:
-        if not os.path.exists(args.project_path):
-            LOGGER.error(f"Project path does not exist: {args.project_path}")
-            exit(-1)
-
-        project_path = os.path.normpath(args.project_path)
-        trial_name = None
-    else:
-        project_path, trial_name = vicon.GetTrialName()
-
-    if not args.trial_name and not trial_name:
-        _, trial_name = vicon.GetTrialName()
-    elif args.trial_name:
-        trial_name = args.trial_name
-
-    trial_path = os.path.join(project_path, trial_name)
-    if not os.path.exists(trial_path + ".system"):
-        LOGGER.error(f"Trial not found: {trial_path}")
-        exit(-1)
-
-    return project_path, trial_name, trial_path
 
 
 def main():
@@ -200,11 +198,21 @@ def main():
         LOGGER.error("Vicon Nexus is not connected.")
         exit(-1)
 
-    project_path, trial_name, trial_path = validate_file_paths(args, vicon)
+    config_path = validate_config_name(args.config_name)
+    project_dir, trial_name, trial_path = validate_file_paths(
+        vicon, args.project_name, args.trial_name
+    )
+
+    config_json_str = json_utils.import_json_as_str(config_path)
+    try:
+        pipeline_series = pipeline.PipelineSeries.model_validate_json(config_json_str)
+    except pydantic.ValidationError as e:
+        LOGGER.error(f"Invalid pipeline configuration: {e}")
+        exit(-1)
 
     mode = "w" if args.log else "off"
     if mode == "w":
-        log_path = os.path.join(project_path, "logs")
+        log_path = os.path.join(project_dir, "logs")
         os.makedirs(log_path, exist_ok=True)
         logger.set_log_dir(log_path)
 
@@ -230,26 +238,21 @@ def main():
 
     LOGGER.info(f"Subject: {subject_name}")
 
-    run_pipeline(vicon, ("ETH_NUSHU_R&L", "Shared", 200))
-    run_pipeline(vicon, ("ETH_NUSHU_MocaPop_Swap", "Shared", 200))
-    run_pipeline(vicon, ("ETH_NUSHU_MocaPop_Unassign", "Shared", 200))
-    run_pipeline(vicon, ("ETH_NUSHU_DeleteUnlabeled", "Shared", 60))
+    gate_checks = {"export": args.export, "filter": args.filter}
+    pipeline_series.run(
+        vicon,
+        gate_checks=gate_checks,
+        subject_name=subject_name,
+        log_quality=(not args.hide_quality_check),
+    )
 
-    marker_trajectories = vicon_utils.get_marker_trajectories(vicon, subject_name)
-    gaps = qc.get_num_gaps(marker_trajectories)
-    labeled = qc.get_perc_labeled(marker_trajectories)
-
-    qc.log_gaps(gaps)
-    qc.log_labeled(labeled)
-
-    if sum(gaps.values()) > 0:
-        recursive_gap_fill(vicon, subject_name)
-
-    if args.filter:
-        run_pipeline(vicon, ("ETH_NUSHU_Filter", "Shared", 60))
-
-    if args.export:
-        run_pipeline(vicon, ("ETH_NUSHU_Export", "Shared", 60))
+    if not args.hide_quality_check:
+        LOGGER.info("Final quality report")
+        marker_trajectories = vicon_utils.get_marker_trajectories(vicon, subject_name)
+        gaps = qc.get_num_gaps(marker_trajectories)
+        labeled = qc.get_perc_labeled(marker_trajectories)
+        qc.log_gaps(gaps)
+        qc.log_labeled(labeled)
 
     if not (args.keep_trial_open or is_open):
         LOGGER.info("Closing trial.")
@@ -266,6 +269,8 @@ def test_main_with_args():
         "pipeline_runner.py",
         "-v",
         "-l",
+        "-cn",
+        "nushu_pipeline_series.json",
         # "-pp",
         # "D:\HPL\pipeline_test_2",
         # "-tn",

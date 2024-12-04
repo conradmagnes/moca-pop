@@ -55,7 +55,7 @@ delete_unlabeled_pipeline = pipeline.Pipeline(
 )
 
 fill_gap_pipelines = [
-    pipeline.Pipeline(
+    pipeline.GapFillPipeline(
         name=f"ETH_NUSHU_FillGaps_Pass{i}",
         args=pipeline.PipelineArgs(location="Shared", timeout=200),
         gates=[
@@ -65,7 +65,7 @@ fill_gap_pipelines = [
     for i in range(1, 4)
 ]
 
-fill_gap_series = pipeline.GapFillPipelineSeries(
+fill_gap_series = pipeline.PipelineSeries(
     pipelines=fill_gap_pipelines, break_on_skip=True
 )
 
@@ -96,8 +96,12 @@ nushu_pipeline_series = pipeline.PipelineSeries(
 
 
 model_json = nushu_pipeline_series.model_dump_json(indent=4)
-output_dir = os.path.join(directory.SCRIPTS_DIR, "nushu_pipeline_runner", "config")
+output_dir = os.path.join(directory.SCRIPTS_DIR, "pipeline_runner", "config")
 output_fn = os.path.join(output_dir, "nushu_pipeline_series.json")
 
 with open(output_fn, "w") as f:
     f.write(model_json)
+
+## test import
+import_str = json_utils.import_json_as_str(output_fn)
+nushu_pipeline_series_test = pipeline.PipelineSeries.model_validate_json(import_str)

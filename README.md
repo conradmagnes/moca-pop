@@ -66,7 +66,7 @@ Otherwise, make sure all dependencies are installed in the correct python enviro
     |   `-- json
     |-- models                          : data models
     |-- scripts                         : main scripts
-    |   |-- nushu_pipeline_runner
+    |   |-- pipeline_runner
     |   `-- unassign_rb_makers          
     `-- utils                           : utility functions
     
@@ -74,16 +74,14 @@ Otherwise, make sure all dependencies are installed in the correct python enviro
 
 ## Main Scripts
 
-### 1. `nushu_pipeline_runner.py`
+### 1. `pipeline_runner.py`
 
-This script executes a series of pre-defined 'ETH_NUSHU' pipelines. These include operations for reconstructing and labeling, 
-unassigning rigid body markers (see below), filling gaps, filtering (optional) and exporting processed data (optional). 
+This script executes a series of pre-defined pipelines. 
 This script must be run as a standalone script, and cannot be integrated into a Vicon Nexus pipeline (see Vicon SDK documentation for RunPipeline()).
-In future, this should be expanded to support more flexible pipeline configurations and executions.
 
 To view usage information, run the following command:
 ```bash
-python mocap_popy/scripts/nushu_pipeline_runner/nushu_pipeline_runner.py --help
+python mocap_popy/scripts/pipeline_runner/pipeline_runner.py --help
 ```
 
 A batch runner is also provided to execute pipeline runners for several trials in the same project directory. See `batch_runner.py` for more information.
