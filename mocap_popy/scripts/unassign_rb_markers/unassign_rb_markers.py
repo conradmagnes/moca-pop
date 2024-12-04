@@ -37,10 +37,10 @@
     ------
     From scripts directory:
     1. Offline Mode:
-        python unassign_rb_markers.py -off -pn <project_dir> -tn <trial_name> -sn <subject_name> -start <start_frame> -end <end_frame>
+        python unassign_rb_markers.py -off -pn <project_name> -tn <trial_name> -sn <subject_name>
 
     2. Online Mode:
-        python unassign_rb_markers.py -on -sn <subject_name> --start_frame <start_frame> --end end_frame <end_frame>
+        python unassign_rb_markers.py -c
 
     Options:
     --------
@@ -60,11 +60,8 @@ import dash
 import logging
 import os
 import sys
-import time
 from typing import Literal, Union
 import tqdm
-import subprocess
-
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -75,8 +72,8 @@ import mocap_popy.config.logger as logger
 from mocap_popy.models.rigid_body import RigidBody, Node
 from mocap_popy.models.marker_trajectory import MarkerTrajectory
 from mocap_popy.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
-from mocap_popy.utils import rigid_body_loader, c3d_parser, model_template_loader
-from mocap_popy.utils import plot_utils, json_utils, dist_utils, hmi
+from mocap_popy.utils import rigid_body_loader, c3d_parser, vicon_utils
+from mocap_popy.utils import plot_utils, json_utils, dist_utils, hmi, argparse_utils
 
 import mocap_popy.aux_scripts.interactive_score_analyzer.app as isa
 
@@ -446,133 +443,6 @@ def plot_scores(
     return fig, ax
 
 
-def validate_offline_args(args) -> tuple:
-    """!Validate offline mode arguments.
-    Mainly checks file paths.
-
-    @return tuple of project_dir, trial_fp, vsk_fp, subject_name
-    """
-
-    if not args.project_name or not args.trial_name or not args.subject_name:
-        LOGGER.error(
-            "Project directory, trial name, and subject name must be provided in offline mode."
-        )
-        exit(-1)
-
-    if "example_datasets" in args.project_name:
-        project_dir = os.path.join(
-            directory.DATASET_DIR, args.project_name.split(os.sep)[-1]
-        )
-    elif args.project_name in os.listdir(directory.DATASET_DIR):
-        LOGGER.info("Found project directory in example datasets.")
-        project_dir = os.path.join(directory.DATASET_DIR, args.project_name)
-    else:
-        project_dir = args.project_name
-
-    if not os.path.isdir(project_dir):
-        LOGGER.error(f"Project directory does not exist ({project_dir}). Exiting.")
-        exit(-1)
-
-    trial_fp = os.path.join(project_dir, f"{args.trial_name}.c3d")
-    if not os.path.isfile(trial_fp):
-        LOGGER.error(f"Trial file does not exist ({trial_fp}). Exiting.")
-        exit(-1)
-
-    vsk_fp = os.path.join(project_dir, f"{args.subject_name}.vsk")
-    if not os.path.isfile(vsk_fp):
-        LOGGER.error(f"VSK file was not found: {vsk_fp}. Exiting.")
-        exit(-1)
-
-    return project_dir, trial_fp, vsk_fp, args.subject_name
-
-
-def validate_online_args(args, vicon):
-    """!Validate online mode arguments.
-
-    Checks loaded trial and subject names, and vsk file.
-
-    @param vicon ViconNexus instance.
-    @return tuple of project_dir, trial_fp, vsk_fp, subject_name
-    """
-    project_dir, trial_name = vicon.GetTrialName()
-    if not trial_name:
-        LOGGER.error("Load a trial in Nexus before running 'online' mode.")
-        exit(-1)
-
-    trial_fp = os.path.join(project_dir, f"{trial_name}.c3d")
-
-    subject_names, subject_templates, subject_statuses = vicon.GetSubjectInfo()
-
-    if not args.subject_name:
-        LOGGER.info("Searching for available subject templates...")
-        candidate_subject_names = []
-        mapper = model_template_loader.load_mapper()
-        for name, template, status in zip(
-            subject_names, subject_templates, subject_statuses
-        ):
-            if template in mapper:
-                candidate_subject_names.append((name, status))
-        if len(candidate_subject_names) == 0:
-            LOGGER.error("No matching templates found for trial subjects. Exiting.")
-            exit(-1)
-        elif len(candidate_subject_names) > 1:
-            candidate_subject_names = [
-                sn for sn, status in candidate_subject_names if status
-            ]
-            if len(candidate_subject_names) > 1 or len(candidate_subject_names) == 0:
-                LOGGER.error("Could not infer subject name (multiple or none active).")
-                exit(-1)
-
-        subject_name, _ = candidate_subject_names[0]
-
-    elif args.subject_name not in subject_names:
-        LOGGER.error(f"Subject name '{args.subject_name}' not found in Nexus. Exiting.")
-        exit(-1)
-    else:
-        subject_name = args.subject_name
-
-    vsk_fp = os.path.join(project_dir, f"{subject_name}.vsk")
-    if not os.path.isfile(vsk_fp):
-        LOGGER.error(f"VSK file was not found: {vsk_fp}. Exiting.")
-        exit(-1)
-
-    return project_dir, trial_fp, vsk_fp, subject_name
-
-
-def validate_start_end_frames(args, frames: list[int]) -> tuple[int, int]:
-    """!Validate start and end frames.
-
-    @param args argparse.Namespace instance.
-    @param frames list of frame indices.
-    @return tuple of start_frame, end_frame
-    """
-    first_frame = frames[0]
-    last_frame = frames[-1]
-
-    if args.start_frame >= last_frame:
-        LOGGER.error(
-            f"Start frame {args.start_frame} is out of range ({first_frame}-{last_frame}). Exiting."
-        )
-        exit(-1)
-
-    start_frame = first_frame if args.start_frame < 0 else args.start_frame
-
-    if args.end_frame < 0:
-        end_frame = last_frame
-    elif args.end_frame < start_frame:
-        LOGGER.error(f"End frame {args.end_frame} is before start frame. Exiting.")
-        exit(-1)
-    elif args.end_frame >= last_frame:
-        LOGGER.warning(
-            f"End frame {args.end_frame} is out of range ({first_frame}-{last_frame}). Setting to end."
-        )
-        end_frame = last_frame
-    else:
-        end_frame = args.end_frame
-
-    return start_frame, end_frame
-
-
 def load_scoring_parameters(name) -> scoringParameters.ScoringParameters:
     scoring_dir = os.path.join(
         directory.SCRIPTS_DIR, "unassign_rb_markers", "scoring", "saved_parameters"
@@ -598,18 +468,6 @@ def load_scoring_parameters(name) -> scoringParameters.ScoringParameters:
         LOGGER.info("Continuing.")
 
     return scoringParameters.ScoringParameters()
-
-
-def get_next_filename(
-    dirpath: str, basename: str, file_ext: str, limit: int = 100
-) -> str:
-    """!Get the next available filename for a basename."""
-    if os.path.exists(os.path.join(dirpath, f"{basename}.{file_ext}")):
-        for i in range(1, limit):
-            if not os.path.exists(os.path.join(dirpath, f"{basename}_{i}.{file_ext}")):
-                basename = f"{basename}_{i}"
-                break
-    return os.path.join(dirpath, f"{basename}.{file_ext}")
 
 
 def write_removal_ranges_to_file(removal_ranges: dict, file_path: str):
@@ -821,22 +679,6 @@ def configure_parser():
     return parser
 
 
-def run_isa_subprocess(args):
-    """Wrapper for main to simulate command-line args in a thread."""
-    LOGGER.info(
-        "Opening Interactive Score Analyzer as a subprocess. This may take a moement to load"
-    )
-
-    isa_path = os.path.join(directory.AUX_DIR, "interactive_score_analyzer", "app.py")
-    run_args = [sys.executable, isa_path] + args
-    process = subprocess.Popen(run_args)
-
-    while process.poll() is None:
-        time.sleep(0.5)
-
-    process.terminate()
-
-
 def main():
     """!Main script execution."""
 
@@ -849,21 +691,19 @@ def main():
             close_console_on_exit=(not args.keep_console_open)
         )
 
-    mode = "w" if args.log else "off"
-    logger.set_root_logger(name="unassign_rb_markers", mode=mode)
-
     if args.verbose:
         LOGGER.setLevel(logging.DEBUG)
         scorer.LOGGER.setLevel(logging.DEBUG)
-
-    LOGGER.info("Running `unassign_rb_markers.py` ...")
-    LOGGER.debug(args)
 
     ## Validate Args
     offline = args.offline
     if offline:
         vicon = None
-        project_dir, trial_fp, vsk_fp, subject_name = validate_offline_args(args)
+        project_dir, trial_fp, vsk_fp, subject_name = (
+            argparse_utils.validate_offline_paths(
+                args.project_name, args.trial_name, args.subject_name
+            )
+        )
     else:
         try:
             from viconnexusapi import ViconNexus
@@ -872,7 +712,21 @@ def main():
             exit(-1)
 
         vicon = ViconNexus.ViconNexus()
-        project_dir, trial_fp, vsk_fp, subject_name = validate_online_args(args, vicon)
+        project_dir, trial_fp, vsk_fp, subject_name = (
+            argparse_utils.validate_online_paths(vicon, args.subject_name)
+        )
+
+    mode = "w" if args.log else "off"
+    trial_name = trial_fp.split(os.sep)[-1].split(".")[0]
+    if mode == "w":
+        log_path = os.path.join(project_dir, "logs")
+        os.makedirs(log_path, exist_ok=True)
+        logger.set_log_dir(log_path)
+
+    logger.set_root_logger(name=f"{trial_name}_unassign_rb_markers", mode=mode)
+
+    LOGGER.info("Running `unassign_rb_markers.py` ...")
+    LOGGER.debug(f"Arguments: {args}")
 
     LOGGER.info(
         "Project: {}, Trial: {}, VSK: {}".format(
@@ -894,18 +748,12 @@ def main():
         marker_trajectories = c3d_parser.get_marker_trajectories(c3d_reader)
         trial_frames = c3d_parser.get_frames(c3d_reader)
     else:
-        markers = vicon.GetMarkerNames(subject_name)
-        marker_trajectories = {}
-        for m in markers:
-            x, y, z, e = vicon.GetTrajectory(subject_name, m)
-            marker_trajectories[m] = MarkerTrajectory(x, y, z, e)
+        marker_trajectories = vicon_utils.get_marker_trajectories(vicon, subject_name)
+        trial_frames = vicon_utils.get_trial_frames(vicon)
 
-        trial_range = vicon.GetTrialRange()
-        trial_frames = list(
-            range(trial_range[0], trial_range[1])
-        )  # should add one to left edge
-
-    start, end = validate_start_end_frames(args, trial_frames)
+    start, end = argparse_utils.validate_start_end_frames(
+        args.start_frame, args.end_frame, trial_frames
+    )
     frames = list(range(start - trial_frames[0], end - trial_frames[0] + 1))
 
     ## Optional Plot of Residuals
@@ -980,6 +828,24 @@ def main():
         block = (offline or args.preserve_markers) and not args.inspect
         plt.show(block=block)
 
+    ## Write Removal Ranges to File
+    if args.save_to_file:
+        removal_ranges = {}
+        for rb_name, removals in removal_histories.items():
+            removal_ranges[rb_name] = {}
+            for i, marker in enumerate(calibrated_rigid_bodies[rb_name].get_markers()):
+                arr = np.array(removals)[:, i]
+                l, g = plot_utils.get_binary_signal_edges(arr)
+                start_end_list = [[l[i] + start, g[i] + start] for i in range(len(l))]
+                removal_ranges[rb_name][marker] = start_end_list
+
+        file_ext = "txt" if args.output_file_type == "txt" else "json"
+        tn = trial_fp.split(os.sep)[-1].split(".")[0]
+        output_fn = f"{tn}_unassign-results"
+        output_fp = directory.get_next_filename(log_path, output_fn, file_ext)
+        write_removal_ranges_to_file(removal_ranges, output_fp)
+        LOGGER.info(f"Removal ranges written to {output_fp}")
+
     ## Inspect
     if args.inspect:
         loop_inspector = True
@@ -994,8 +860,6 @@ def main():
             if ui.lower() == "s":
                 loop_inspector = False
             else:
-                trial_name = trial_fp.split(os.sep)[-1].split(".")[0]
-
                 isa_args = [
                     "-pn",
                     project_dir,
@@ -1013,7 +877,10 @@ def main():
                 if args.verbose:
                     isa_args.append("-v")
 
-                run_isa_subprocess(isa_args)
+                LOGGER.info(
+                    "Opening Interactive Score Analyzer as a subprocess. This may take a moement to load"
+                )
+                isa.run_as_subprocess(isa_args)
 
                 LOGGER.info("ISA has shutdown.")
 
@@ -1032,24 +899,6 @@ def main():
             remove_markers_from_online_trial(
                 vicon, subject_name, removal_histories, calibrated_rigid_bodies, start
             )
-
-    ## Write Removal Ranges to File
-    if args.save_to_file:
-        removal_ranges = {}
-        for rb_name, removals in removal_histories.items():
-            removal_ranges[rb_name] = {}
-            for i, marker in enumerate(calibrated_rigid_bodies[rb_name].get_markers()):
-                arr = np.array(removals)[:, i]
-                l, g = plot_utils.get_binary_signal_edges(arr)
-                start_end_list = [[l[i] + start, g[i] + start] for i in range(len(l))]
-                removal_ranges[rb_name][marker] = start_end_list
-
-        file_ext = "txt" if args.output_file_type == "txt" else "json"
-        tn = trial_fp.split(os.sep)[-1].split(".")[0]
-        output_fn = f"{tn}_removals"
-        output_fp = get_next_filename(project_dir, output_fn, file_ext)
-        write_removal_ranges_to_file(removal_ranges, output_fp)
-        LOGGER.info(f"Removal ranges written to {output_fp}")
 
     ## Cleanup
     LOGGER.info("Done!")

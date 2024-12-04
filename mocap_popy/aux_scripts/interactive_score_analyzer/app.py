@@ -37,6 +37,9 @@ from threading import Timer
 import threading
 import sys
 import signal
+import subprocess
+import time
+
 
 from dash import dcc, html
 from dash.dependencies import Input, Output, State, ALL
@@ -47,7 +50,7 @@ import pydantic
 import mocap_popy.config.directory as directory
 import mocap_popy.config.regex as regex
 import mocap_popy.config.logger as logger
-from mocap_popy.models.rigid_body import RigidBody
+from mocap_popy.models.rigid_body import RigidBody, best_fit_transform
 from mocap_popy.utils import c3d_parser, hmi, json_utils
 from mocap_popy.utils import rigid_body_loader, model_template_loader
 from mocap_popy.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
@@ -1092,7 +1095,11 @@ def load_active_body(
     active_body.compute_segment_residuals(calibrated_body)
     active_body.compute_joint_residuals(calibrated_body)
 
-    isa_helpers.best_fit_transform(calibrated_body, active_body)
+    fit_res = best_fit_transform(calibrated_body, active_body)
+    if not fit_res:
+        LOGGER.error(
+            "Could not find a best fit transform (too few markers). Calibrated body will not be transformed."
+        )
 
     return active_body
 
@@ -1215,6 +1222,19 @@ def main():
     scoring_params = load_scoring_parameters(args.scoring_name)
 
     run(calibrated_body, active_body, scoring_params, ignore_symmetry)
+
+
+def run_as_subprocess(args):
+    """Wrapper for main to simulate command-line args in a thread."""
+
+    isa_path = os.path.join(directory.AUX_DIR, "interactive_score_analyzer", "app.py")
+    run_args = [sys.executable, isa_path] + args
+    process = subprocess.Popen(run_args)
+
+    while process.poll() is None:
+        time.sleep(0.5)
+
+    process.terminate()
 
 
 def test_main_with_args():

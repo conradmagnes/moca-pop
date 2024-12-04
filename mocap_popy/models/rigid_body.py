@@ -1018,3 +1018,72 @@ class RigidBody:
                 joint_str,
             ]
         )
+
+
+def best_fit_transform(target_body: RigidBody, active_body: RigidBody) -> bool:
+    """
+    Computes the optimal rigid transformation (rotation + translation) that aligns
+    points A with points B using the Kabsch algorithm.
+
+    @param target_body Rigid body to be transformed.
+    @param active_body Rigid body to be used as the reference.
+    @return Whether the transformation was successful.
+    """
+    active_nodes = [n for n in active_body.nodes if n.exists]
+    if len(active_nodes) < 3:
+        return False
+
+    active_markers = [n.marker for n in active_nodes]
+    active_positions = np.array([n.position for n in active_nodes])
+    calibrated_positions = np.array(
+        [target_body.get_node(m).position for m in active_markers]
+    )
+
+    A = calibrated_positions
+    B = active_positions
+
+    # 1. Calculate centroids of A and B
+    centroid_A = np.mean(A, axis=0)
+    centroid_B = np.mean(B, axis=0)
+
+    # 2. Translate points to have their centroids at the origin
+    AA = A - centroid_A
+    BB = B - centroid_B
+
+    # 3. Compute the covariance matrix H
+    H = AA.T @ BB
+
+    # 4. Compute the Singular Value Decomposition (SVD) of H
+    U, S, Vt = np.linalg.svd(H)
+
+    # 5. Compute the optimal rotation matrix R
+    R = Vt.T @ U.T
+
+    # Special reflection case to correct improper rotation matrices
+    if np.linalg.det(R) < 0:
+        Vt[-1, :] *= -1
+        R = Vt.T @ U.T
+
+    # 6. Compute the optimal translation vector t
+    t = centroid_B - R @ centroid_A
+
+    all_calibrated_positions = np.array([n.position for n in target_body.nodes])
+    transformed_points = apply_transform(all_calibrated_positions, R, t)
+    target_body.update_node_positions(
+        {m: p for m, p in zip(target_body.get_markers(), transformed_points)}
+    )
+
+    return True
+
+
+def apply_transform(points, R, t):
+    """
+    Applies the given rigid transformation (rotation + translation) to the points.
+
+    @param points (N, 3) ndarray of points to transform.
+    @param R (3, 3) ndarray representing the rotation matrix.
+    @param t (3, ) ndarray representing the translation vector.
+
+    @return transformed_points (N, 3) ndarray of transformed points.
+    """
+    return (R @ points.T).T + t

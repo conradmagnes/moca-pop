@@ -1,27 +1,9 @@
 import logging
 
-from viconnexusapi import ViconNexus
 
 from mocap_popy.models.marker_trajectory import MarkerTrajectory
 
 LOGGER = logging.getLogger("QualityReport")
-
-
-def get_marker_trajectories(
-    vicon: ViconNexus.ViconNexus, subject_name: str
-) -> dict[str, MarkerTrajectory]:
-    """!Get marker trajectories for a subject from Vicon Nexus.
-
-    @param vicon Vicon Nexus instance
-    @param subject_name Name of the subject
-    @return Dictionary of marker trajectories
-    """
-    markers = vicon.GetMarkerNames(subject_name)
-    marker_trajectories: dict[str, MarkerTrajectory] = {}
-    for m in markers:
-        x, y, z, e = vicon.GetTrajectory(subject_name, m)
-        marker_trajectories[m] = MarkerTrajectory(x, y, z, e)
-    return marker_trajectories
 
 
 def get_num_gaps(

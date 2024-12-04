@@ -26,10 +26,25 @@
 
     Saving the trial is not recommended as it will overwrite the original data.
 
-    Run with -h or --help for usage information.
+    Usage:
+    ------
+    From scripts directory:
+    1. Offline Mode:
+        python nushu_pipeline_runner.py -off -pp <project_path> -tn <trial_name> -sn <subject_name>
 
-    Example Usage:
+    2. Online Mode:
+        python nushu_pipeline_runner.py 
+
+    Example:
         python nushu_pipeline_runner.py -v -l -e -pp "D:\HPL\pipeline_test_2" -tn "20241107T102745Z_semitandem-r" -sn "subject"
+
+    Options:
+    --------
+    Run 'python nushu_pipeline_runner.py -h' for options.
+
+    Returns:
+    --------
+    0 if successful, -1 if failed.
 
     @author: C. McCarthy
 """
@@ -43,7 +58,7 @@ import sys
 from viconnexusapi import ViconNexus
 
 import mocap_popy.config.logger as logger
-from mocap_popy.utils import vicon_quality_check as vqc
+from mocap_popy.utils import quality_check as qc
 
 LOGGER = logging.getLogger("PipelineRunner")
 
@@ -64,12 +79,12 @@ def recursive_gap_fill(
 
     run_pipeline(vicon, pipeline_args)
 
-    marker_trajectories = vqc.get_marker_trajectories(vicon, subject_name)
-    gaps = vqc.get_num_gaps(marker_trajectories)
-    labeled = vqc.get_perc_labeled(marker_trajectories)
+    marker_trajectories = qc.get_marker_trajectories(vicon, subject_name)
+    gaps = qc.get_num_gaps(marker_trajectories)
+    labeled = qc.get_perc_labeled(marker_trajectories)
 
-    vqc.log_gaps(gaps)
-    vqc.log_labeled(labeled)
+    qc.log_gaps(gaps)
+    qc.log_labeled(labeled)
 
     if sum(gaps.values()) == 0 or pass_number >= max_passes:
         return
@@ -129,14 +144,14 @@ def configure_parser():
         help="Apply a Butterworth filter to the trajectories.",
     )
     parser.add_argument(
-        "--keep_open",
+        "--keep_trial_open",
         action="store_true",
         help="Keep the trial open after processing.",
     )
     parser.add_argument(
         "--_new_console_opened",
         action="store_true",
-        help="Flag to avoid infinite loop of running script in new console.",
+        help=argparse.SUPPRESS,
     )
 
     return parser
@@ -219,12 +234,12 @@ def main():
     run_pipeline(vicon, ("ETH_NUSHU_R&L", "Shared", 200))
     run_pipeline(vicon, ("ETH_NUSHU_UnlabelRB", "Shared", 200))
 
-    marker_trajectories = vqc.get_marker_trajectories(vicon, subject_name)
-    gaps = vqc.get_num_gaps(marker_trajectories)
-    labeled = vqc.get_perc_labeled(marker_trajectories)
+    marker_trajectories = qc.get_marker_trajectories(vicon, subject_name)
+    gaps = qc.get_num_gaps(marker_trajectories)
+    labeled = qc.get_perc_labeled(marker_trajectories)
 
-    vqc.log_gaps(gaps)
-    vqc.log_labeled(labeled)
+    qc.log_gaps(gaps)
+    qc.log_labeled(labeled)
 
     if sum(gaps.values()) > 0:
         recursive_gap_fill(vicon, subject_name)
@@ -235,13 +250,14 @@ def main():
     if args.export:
         run_pipeline(vicon, ("ETH_NUSHU_Export", "Shared", 60))
 
-    if not (args.keep_open or is_open):
+    if not (args.keep_trial_open or is_open):
         LOGGER.info("Closing trial.")
         vicon.CloseTrial(30)
 
     LOGGER.info(
         "Pipeline complete. Total duration: {:.2f} seconds.".format(time.time() - start)
     )
+    exit(0)
 
 
 def test_main_with_args():
