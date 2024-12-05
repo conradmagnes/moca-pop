@@ -6,7 +6,7 @@ This repository contains python scripts for processing motion capture data. The 
 to work with the Vicon Nexus software or files exported from the software (.VSK, .C3D). However, the repository can be
 extended to work with other motion capture systems.
 
-### Contents
+## Contents
 - [Demos](#demos)
 - [Installation](#installation)
 - [Repo Structure](#repo-structure)
@@ -19,7 +19,9 @@ extended to work with other motion capture systems.
 
 ### Sequential Pipeline Operations: `swap_rb_markers.py` and `unassign_rb_markers.py` 
 
-The following demo shows the sequential execution of the `swap_rb_markers.py` and `unassign_rb_markers.py` scripts. The `swap_rb_markers.py` script is executed first to identify and correct mislabeled markers (starting at t = 20 s). The `unassign_rb_markers.py` script is then executed to unassign markers that do not match the calibrated RigidBody model (e.g. between t = 2 - 8 s). An .MP4 file can be found in the `media` directory.
+The following demo shows the sequential execution of the `swap_rb_markers.py` and `unassign_rb_markers.py` scripts. The demo uses a recording of a subject stepping forward with the right foot. Ten markers were placed on each of the subject's shoes. Labeling for the right shoe is colored, with notable mislabeled markers highlighted in red, yellow, blue and light green. Other marker labels are colored dark green (right shoe) or dark gray (left shoe). Light gray markers indicate unlabeled markers.
+
+The `swap_rb_markers.py` script is executed first to identify and correct mislabeled markers (starting at t = 20 s). The `unassign_rb_markers.py` script is then executed to unassign markers that do not match the calibrated RigidBody model (e.g. between t = 2 - 8 s). An .MP4 file can be found in the `media` directory.
 
 ![demo](/media/moca-pop_main_demo.gif)
 
