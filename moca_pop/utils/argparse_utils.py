@@ -16,21 +16,15 @@ from moca_pop.utils import model_template_loader
 LOGGER = logging.getLogger("ArgparseUtils")
 
 
-def validate_offline_paths(
-    project_name: str, trial_name: str, subject_name: str
-) -> tuple:
-    """!Validate offline mode file paths.
+def validate_offline_project_dir(project_name: str) -> str:
+    """!Validate offline mode project directory.
 
     @param project_name Project directory or example dataset name.
-    @param trial_name Trial name.
-    @param subject_name Subject name.
-    @return tuple of project_dir, trial_fp, vsk_fp, subject_name
+    @return project_dir
     """
 
-    if not project_name or not trial_name or not subject_name:
-        LOGGER.error(
-            "Project directory, trial name, and subject name must be provided in offline mode."
-        )
+    if not project_name:
+        LOGGER.error("Project directory must be provided in offline mode.")
         exit(-1)
 
     if "example_datasets" in project_name:
@@ -45,6 +39,27 @@ def validate_offline_paths(
 
     if not os.path.isdir(project_dir):
         LOGGER.error(f"Project directory does not exist ({project_dir}). Exiting.")
+        exit(-1)
+
+    return project_dir
+
+
+def validate_offline_paths(
+    project_name: str, trial_name: str, subject_name: str
+) -> tuple:
+    """!Validate offline mode file paths.
+
+    @param project_name Project directory or example dataset name.
+    @param trial_name Trial name.
+    @param subject_name Subject name.
+    @return tuple of project_dir, trial_fp, vsk_fp, subject_name
+    """
+    project_dir = validate_offline_project_dir(project_name)
+
+    if not trial_name or not subject_name:
+        LOGGER.error(
+            "Project directory, trial name, and subject name must be provided in offline mode."
+        )
         exit(-1)
 
     trial_fp = os.path.join(project_dir, f"{trial_name}.c3d")

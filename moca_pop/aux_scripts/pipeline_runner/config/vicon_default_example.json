@@ -28,5 +28,7 @@
             "gate_operator": "all"
         }
     ],
-    "break_on_skip": false
+    "break_on_skip": false,
+    "break_on_fail": true,
+    "propogate_fail": true
 }

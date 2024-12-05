@@ -35,21 +35,19 @@
     
     Usage:
     ------
-    From scripts directory:
-    1. Offline Mode:
-        python unassign_rb_markers.py -off -pn <project_name> -tn <trial_name> -sn <subject_name>
+    python unassign_rb_markers.py [-h] [-v] [-l] [-c] [-f] [-p] [-s] [-i] [-off] [-out {json,txt}] [-res {calib,prior}]
+                              [-pn PROJECT_NAME] [-tn TRIAL_NAME] [-sn SUBJECT_NAME] [--scoring_name SCORING_NAME]
+                              [--segments_only] [--max_removals_per_frame MAX_REMOVALS_PER_FRAME] [--start_frame START_FRAME]       
+                              [--end_frame END_FRAME] [--plot_residuals] [--plot_scores] [--plot_removals] [--keep_console_open]
 
-    2. Online Mode:
-        python unassign_rb_markers.py -c
-
-    Options:
-    --------
-    Run 'python unassign_rb_markers.py -h' for options.
+    Examples:
+        python unassign_rb_markers.py -v -l -i -off -res "calib" -pn "shoe_stepping" -tn "trial01" -sn "subject" --scoring_name "foot" --segments_only --plot_removals
+                              
+    Run 'python unassign_rb_markers.py -h' for detailed option descriptions.
 
     Returns:
     --------
     0 if successful, -1 if an error occurred.
-
 
     @author C. McCarthy
 """
@@ -573,6 +571,7 @@ def configure_parser():
     )
 
     parser.add_argument(
+        "-out",
         "--output_file_type",
         type=str,
         default="txt",
@@ -587,12 +586,6 @@ def configure_parser():
         default="calib",
         choices=["calib", "prior"],
         help="Type of residuals to consider for scoring. `calib` compares to calibration, `prior` compares to prior frame.",
-    )
-
-    parser.add_argument(
-        "--segments_only",
-        action="store_true",
-        help="Only score segment length residuals (ignore joint angles). Significantly reduces computation time.",
     )
 
     parser.add_argument(
@@ -624,6 +617,12 @@ def configure_parser():
         type=str,
         default="default",
         help="Name of the scoring configuration to use. (saved to moca_pop/scripts/unassign_rb_markers/scoring)",
+    )
+
+    parser.add_argument(
+        "--segments_only",
+        action="store_true",
+        help="Only score segment length residuals (ignore joint angles). Significantly reduces computation time.",
     )
 
     parser.add_argument(

@@ -91,25 +91,35 @@ class Pipeline(BaseModel):
         description="Operator to use for combining the gates. Accepts 'all', 'any', 'none'",
     )
 
-    def run(self, vicon, gate_checks=None, *args, **kwargs) -> bool:
+    def run(self, vicon, gate_checks=None, *args, **kwargs) -> int:
         """!Run the pipeline.
 
         @param vicon: Vicon Nexus SDK object
         @param attributes: Attributes to check against the gates
-        @return False if the pipeline was skipped, True otherwise
+        @return 0 if the pipeline ran successfully, 1 if the pipeline was skipped, -1 if the pipeline failed
         """
         if self.gates:
             check = [gate.check(gate_checks) for gate in self.gates]
             if not AGG_OPERATOR_MAP[self.gate_operator](check):
                 LOGGER.info(f"Pipeline {self.name} skipped.")
-                return False
+                return 1
 
         start = time.time()
-        vicon.RunPipeline(self.name, self.args.location, self.args.timeout)
+        result = vicon.Client.RunPipeline(
+            self.name.encode("utf-8"),
+            self.args.location.encode("utf-8"),
+            self.args.timeout,
+        )
+        if result.Error() and vicon.GenerateErrors:
+            LOGGER.error(
+                f"Pipeline '{self.name}' failed after {time.time() - start:.2f} seconds. Check Vicon Nexus Logs."
+            )
+            return -1
+
         end = time.time()
 
         LOGGER.info(f"Pipeline {self.name} completed in {end - start:.2f} seconds.")
-        return True
+        return 0
 
 
 class GapFillPipeline(Pipeline):
@@ -153,7 +163,7 @@ class GapFillPipeline(Pipeline):
         log_quality: bool = True,
         *args,
         **kwargs,
-    ) -> bool:
+    ) -> int:
         """!Run the gap fill pipeline. If a subject name is provided, generate additional attributes based on the quality of the marker trajectories.
         The quality of the marker trajectories can be logged.
 
@@ -161,6 +171,7 @@ class GapFillPipeline(Pipeline):
         @param gate_checks Values to check against the gates. Set to None to generate values based on the quality of the marker trajectories
         @param subject_name Name of the subject (optional).
         @param log_quality Whether to log the quality of the marker trajectories
+        @return 0 if the pipeline ran successfully, 1 if the pipeline was skipped, -1 if the pipeline failed
         """
 
         check_values = {}
@@ -177,14 +188,24 @@ class GapFillPipeline(Pipeline):
             check = [gate.check(check_values) for gate in self.gates]
             if not AGG_OPERATOR_MAP[self.gate_operator](check):
                 LOGGER.info(f"Pipeline {self.name} skipped.")
-                return False
+                return 1
 
         start = time.time()
-        vicon.RunPipeline(self.name, self.args.location, self.args.timeout)
+        result = vicon.Client.RunPipeline(
+            self.name.encode("utf-8"),
+            self.args.location.encode("utf-8"),
+            self.args.timeout,
+        )
+        if result.Error() and vicon.GenerateErrors:
+            LOGGER.error(
+                f"Pipeline '{self.name}' failed after {time.time() - start:.2f} seconds. Check Vicon Nexus Logs."
+            )
+            return -1
+
         end = time.time()
 
         LOGGER.info(f"Pipeline {self.name} completed in {end - start:.2f} seconds.")
-        return True
+        return 0
 
 
 class PipelineSeries(BaseModel):
@@ -193,6 +214,12 @@ class PipelineSeries(BaseModel):
         description="Series of pipelines to run"
     )
     break_on_skip: bool = Field(description="Break the series if a pipeline is skipped")
+    break_on_fail: bool = Field(
+        description="Break the series if a pipeline fails", default=True
+    )
+    propogate_fail: bool = Field(
+        description="Propogate the failure to the next pipeline", default=True
+    )
 
     def run(self, vicon, gate_checks=None, *args, **kwargs) -> bool:
         """!Run the pipeline series.
@@ -203,7 +230,13 @@ class PipelineSeries(BaseModel):
         """
         for pipeline in self.pipelines:
             ran = pipeline.run(vicon, gate_checks=gate_checks, *args, **kwargs)
-            if not ran and self.break_on_skip:
+            if ran == -1 and self.break_on_fail:
+                if self.propogate_fail:
+                    if isinstance(pipeline, Pipeline):
+                        LOGGER.error(f"Pipeline {pipeline.name} caused series to fail.")
+                    return -1
+                return 0
+            if ran == 1 and self.break_on_skip:
                 break
 
-        return True
+        return 0

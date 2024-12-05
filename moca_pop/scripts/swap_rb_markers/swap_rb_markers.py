@@ -28,16 +28,18 @@
 
     Usage:
     ------
-    From scripts directory:
+    python swap_rb_markers.py [-h] [-v] [-l] [-c] [-f] [-p] [-s] [-i] [-off] [-out {json,txt}] [-pn PROJECT_NAME] [-tn TRIAL_NAME]
+                          [-sn SUBJECT_NAME] [--distance_tolerance DISTANCE_TOLERANCE] [--start_frame START_FRAME]
+                          [--end_frame END_FRAME] [--plot_swaps] [--keep_console_open]
+
+    Examples:
     1. Offline Mode:
         python swap_rb_markers.py -off -pn <project_dir> -tn <trial_name> -sn <subject_name> --distance_tolerance 30 --start_frame 0 --end_frame -1
 
     2. Online Mode:
         python swap_rb_markers.py -sn <subject_name>
 
-    Options:
-    --------
-    Run `python swap_rb_markers.py -h` for options.
+    Run `python swap_rb_markers.py -h` for detailed option descriptions.
 
     Returns:
     --------
@@ -478,6 +480,7 @@ def configure_parser():
     )
 
     parser.add_argument(
+        "-out",
         "--output_file_type",
         type=str,
         default="txt",

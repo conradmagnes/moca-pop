@@ -20,14 +20,15 @@
     Usage:
     ------
 
-    python pipeline_runner.py -off -cn <config_name> -pn <project_name> -tn <trial_name> -sn <subject_name>
+    python pipeline_runner.py [-h] [-v] [-l] -cn CONFIG_NAME [-pn PROJECT_NAME] [-tn TRIAL_NAME] [-sn SUBJECT_NAME] [--export]
+                            [--filter] [--keep_trial_open] [--hide_quality_check]
 
     Example:
         python pipeline_runner.py -v -l -cn "nushu_pipeline_series" -pn "D:\HPL\pipeline_test_2" -tn "20241107T102745Z_semitandem-r" -sn "subject" --keep_trial_open
 
     Options:
     --------
-    Run 'python pipeline_runner.py -h' for options.
+    Run 'python pipeline_runner.py -h' for option descriptions.
 
     Returns:
     --------
@@ -239,7 +240,7 @@ def main():
     LOGGER.info(f"Subject: {subject_name}")
 
     gate_checks = {"export": args.export, "filter": args.filter}
-    pipeline_series.run(
+    run_result = pipeline_series.run(
         vicon,
         gate_checks=gate_checks,
         subject_name=subject_name,
@@ -259,9 +260,9 @@ def main():
         vicon.CloseTrial(30)
 
     LOGGER.info(
-        "Pipeline complete. Total duration: {:.2f} seconds.".format(time.time() - start)
+        "Pipeline ended. Total duration: {:.2f} seconds.".format(time.time() - start)
     )
-    exit(0)
+    exit(run_result)
 
 
 def test_main_with_args():
