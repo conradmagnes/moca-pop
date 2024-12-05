@@ -1,9 +1,5 @@
 
-<h1><img src="./media/images/moca-pop_icon.png" alt="moca-pop_icon" height="80", align="left">
-<div>
-  MOCA-POP<br>MOtion CApture Pipeline Operations using Python
-</div>
-</h1>
+# <img src="./media/images/moca-pop_icon.png" alt="moca-pop_icon" height="80" align="left"> <span><strong>MOCA POP</strong><br><small>MOtion CApture Python Operation Pipelines</small></span>
 
 ## Description
 
