@@ -1,7 +1,22 @@
-# MOCAP-POPY: MOtion CAPture Pipeline Operations (using) PYthon
+# MOCA-POP: MOtion CApture Pipeline Operations using Python
 
 ## Description
-This repository contains python scripts for processing MoCap data.
+
+This repository contains python scripts for processing motion capture data. The scripts were designed and tested
+to work with the Vicon Nexus software or files exported from the software (.VSK, .C3D). However, the repository can be
+extended to work with other motion capture systems.
+
+### Contents
+- [Installation](#installation)
+- [Repo Structure](#repo-structure)
+- [Main Scripts](#main-scripts)
+- [Auxiliary Scripts](#auxiliary-scripts)
+- [Contributing](#contributing)
+
+
+## Demonstration
+
+![test](/media/test_unassign.gif)
 
 ## Installation
 
@@ -144,6 +159,7 @@ To view usage information, run the following command:
 ```bash
 python mocap_popy/aux_scripts/interactive_score_analyzer/interactive_score_analyzer.py --help
 ```
+
 
 ## Contributing
 
