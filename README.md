@@ -1,12 +1,9 @@
-#
 
-<div style="display: flex; align-items: left;">
-  <img src="./media/images/moca-pop_icon.png" alt="moca-pop_icon" height="80" style="margin-right: 15px;">
-  <div>
-    <h1 style="margin: 0; border: 0;">MOCA-POP</h1>
-    <h2 style="margin: 0; font-weight: normal; border: 0;">MOtion CApture Pipeline Operations using Python</h2>
-  </div>
+<h1><img src="./media/images/moca-pop_icon.png" alt="moca-pop_icon" height="80", align="left">
+<div>
+  MOCA-POP<br>MOtion CApture Pipeline Operations using Python
 </div>
+</h1>
 
 ## Description
 
