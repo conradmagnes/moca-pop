@@ -16,14 +16,8 @@ extended to work with other motion capture systems.
 
 ## Demonstration
 
-![test](/media/test_unassign.gif)
+![test](/media/test_combined_900.gif)
 
-## t
-
-![test2](/media/test_unassign_700.gif)
-
-## t2
-![test3](/media/test_unassign_900.gif)
 
 ## Installation
 
