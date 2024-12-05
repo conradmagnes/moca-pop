@@ -3,7 +3,7 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mocap_popy"
+name = "moca_pop"
 version = "1.0.0"
 requires-python = ">=3.11"
 dependencies=[
@@ -16,10 +16,10 @@ dependencies=[
 ]
 
 [tool.setuptools]
-packages = { find = { include = ["mocap_popy", "mocap_popy.*"], exclude = ["test", "*.test", "test.*", "*.test.*"] } }
+packages = { find = { include = ["moca_pop", "moca_pop.*"], exclude = ["test", "*.test", "test.*", "*.test.*"] } }
 
 [tool.setuptools.package-dir]
-mocap_popy = "mocap_popy"
+moca_pop = "moca_pop"
 
 [project.optional-dependencies]
 test = []

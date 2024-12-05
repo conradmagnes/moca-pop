@@ -1,21 +1,32 @@
-# `MoCap-POPY` Changelog
+# `MOCA-POP` Changelog
 
-This changelog is a record of all notable changes made to the `MoCap-POPY`.
+This changelog is a record of all notable changes made to the `MOCA-POP`.
 
 Entries should be prepended to the list below before merging on to `main`.
 Entries should have be named with the date of the merge in the format `YYYY-MM-DD`.
-Each entry has to feature the following sections: **Added**, **Changed**,
-**Removed**, and **Fixed**.
+Each entry has to feature the following sections: **Added**, **Changed**, and
+**Removed**.
 If no item is present for a given section, have it say None.
 
 ## 2024-12-04
 ### Added
-- `mocap_popy/scripts/swap_rb_markers` - main script for swapping and unassigning marker labels from a subject with rigid bodies based on distance to a reference rigid body.
-- in `mocap_popy/scripts/pipeline_runner/`:
+- `media/` - folder containing images and videos for documentation
+
+### Changed
+- **Renamed Repo to `moca-pop`**
+- Moved `pipeline_runner` from `scripts` to `aux_scripts`
+- Propogated renaming changes
+- Updated README with demo videos
+
+
+## 2024-12-04
+### Added
+- `moca_pop/scripts/swap_rb_markers` - main script for swapping and unassigning marker labels from a subject with rigid bodies based on distance to a reference rigid body.
+- in `moca_pop/scripts/pipeline_runner/`:
   - `pipeline.py` - classes for defining and running a series of Vicon Nexus pipelines. This provides a more generalized approach to running pipelines than the previous implementation.
   - `config_builder/` - files for building pipeline configurations using 'Pipeline' and 'PipelineSeries' classes.
   - `config/` - json representations of pipeline configurations.
-- in `mocap_popy/utils`:
+- in `moca_pop/utils`:
   - `argparse_utils.py` - helper functions for parsing command line arguments (e.g. frame range, directories).
   - `vicon_utils.py` - helper functions for working with online Vicon data (e.g. get marker trajectories, frame numbers).
 
@@ -37,10 +48,10 @@ None
 
 ## 2024-12-03
 ### Added
-- `mocap_popy/scripts/nushu_pipeline_runner` - script for running the Nushu pipeline on a given dataset.
+- `moca_pop/scripts/nushu_pipeline_runner` - script for running the Nushu pipeline on a given dataset.
   - `nushu_pipeline_runner.py` - main script for running the pipeline
   - `batch_runner.py` - runs the pipeline on multiple datasets
-- in `mocap_popy/utils`:
+- in `moca_pop/utils`:
   - `quality_check.py` - script for checking the quality of Vicon data (e.g. marker gaps, percentage of labeled data)
 
 ### Changed
@@ -54,7 +65,7 @@ None
 
 ## 2024-12-01
 ### Added
-- `mocap_popy/aux_scripts/interactive_score_analyzer` - launches a web-based (dash) app for visualizing and
+- `moca_pop/aux_scripts/interactive_score_analyzer` - launches a web-based (dash) app for visualizing and
 developing scoring strategies for rigid bodies. Includes:
   - `app.py` - main script for launching the app
   - `layout.py` - layout of the app
@@ -69,14 +80,14 @@ None
 
 ## 2024-11-20
 ### Added
-- `mocap_popy/utils/hmi.py` - helpers for interacting with command line
-- `mocap_popy/scripts/unassign_rb_markers/scoring`
+- `moca_pop/utils/hmi.py` - helpers for interacting with command line
+- `moca_pop/scripts/unassign_rb_markers/scoring`
   - `saved_parameters/` - folder containing saved scoring parameters
   - `scoringParameters.py` - model for scoring params (pydantic)
       - includes aggregation parameters and score thresholds (including at node level)
 
 ### Changed
-- Renamed and update `rigid_body_scorer.py` to `scorer.py` and moved to `mocap_popy/scripts/unassign_rb_markers/scoring`
+- Renamed and update `rigid_body_scorer.py` to `scorer.py` and moved to `moca_pop/scripts/unassign_rb_markers/scoring`
   - Fixed duplicate scoring issue during sort task in `scorer.py` (include/exclude arg)
   - deprecated component-level thresholds before aggregation
   - fixed generation of prior residual histories in `scorer.py`
@@ -87,7 +98,7 @@ None
 
 ## 2024-11-19
 ### Added
-- `mocap_popy/utils/dist_utils.py` - helpers for running scripts from different computers
+- `moca_pop/utils/dist_utils.py` - helpers for running scripts from different computers
 
 ### Changed
 - Renamed `aux` to `aux_scripts` to avoid Windows reserved word
@@ -102,7 +113,7 @@ None
 ## 2024-11-18
 ### Added
 - `example_datasets/shoe_stepping` - folder containing example data recorded during Conrad's MT
-- Under `mocap_popy`
+- Under `moca_pop`
   - `aux/generate_template_file_mapper.py` - script for generating a json file that maps model names to their respective template file locations
   - `config/` - folder containing common configuration files
     - `directory.py` - defines paths to common directories
@@ -133,14 +144,14 @@ None
 - `README.md` updated
 
 ### Removed
-- `tests` from `mocap_popy` directory (in favor of including `tests` dirs closer to the scripts they test)
+- `tests` from `moca_pop` directory (in favor of including `tests` dirs closer to the scripts they test)
 
 ## 2024-11-13
 ### Added
 Changes for the initial repo setup were comitted directly to the main branch. 
 The following directories were added:
 - logs/
-- mocap_popy/
+- moca_pop/
   - aux/
   - scripts/
   - test/
