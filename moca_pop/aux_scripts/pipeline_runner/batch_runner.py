@@ -12,15 +12,15 @@
     Usage:
     ------
 
-    python batch_runner.py -cn <config_name> -pp <project_path>
+    batch_runner.py [-h] [-l] [-v] -cn CONFIG_NAME -pp PROJECT_PATH [--include INCLUDE] [--exclude EXCLUDE] [--ledger LEDGER]
+                       [--update_ledger] [-sn SUBJECT_NAME] [--filter]
 
     Examples: 
         python batch_runner.py -v -l -cn "nushu_pipeline_series.json" -pp "D:\HPL\pipeline_test_2" --include "20241107T104520Z_step-forward-r,20241107T104613Z_step-forward-l"
         python batch_runner.py -v -l -cn "nushu_pipeline_series.json" -pp "D:\HPL\t03" -sn "nushu" --ledger "ledger.txt" --update_ledger
 
-    Options:
-    --------
-    Run 'python batch_runner.py -h' for options.
+
+    Run 'python batch_runner.py -h' for detailed option descriptions.
 
     Returns:
     --------

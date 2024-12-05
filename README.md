@@ -150,7 +150,7 @@ Note, this script does not require internet connectivity to run, as it is a loca
 
 To view usage information, run the following command:
 ```bash
-python moca_pop/aux_scripts/interactive_score_analyzer/interactive_score_analyzer.py --help
+python moca_pop/aux_scripts/interactive_score_analyzer/app.py --help
 ```
 
 ### 2. `pipeline_runner.py`

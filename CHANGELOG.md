@@ -8,7 +8,20 @@ Each entry has to feature the following sections: **Added**, **Changed**, and
 **Removed**.
 If no item is present for a given section, have it say None.
 
-## 2024-12-04
+## 2024-12-06
+### Added
+- `print_trial_name.py` - aux script for printing, or optionally writing to file, trial names within a directory. 
+This script is useful for generating ledgers for batch runners or for quickly checking the contents of a directory.
+
+### Changed
+- Updated `batch_runner.py` to optionally include trial names from a ledger, and update the ledger after successful completion.
+- Updated `pipeline_runner.py` to gracefully handle pipeline failures (i.e. errors thrown by vicon.RunPipeline()).
+- log file name format to prepend timestamp (rather than append) by default
+
+### Removed
+None
+
+## 2024-12-05
 ### Added
 - `media/` - folder containing images and videos for documentation
 
@@ -18,6 +31,8 @@ If no item is present for a given section, have it say None.
 - Propogated renaming changes
 - Updated README with demo videos
 
+### Removed
+None
 
 ## 2024-12-04
 ### Added

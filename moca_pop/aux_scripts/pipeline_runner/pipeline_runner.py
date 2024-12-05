@@ -20,14 +20,15 @@
     Usage:
     ------
 
-    python pipeline_runner.py -off -cn <config_name> -pn <project_name> -tn <trial_name> -sn <subject_name>
+    python pipeline_runner.py [-h] [-v] [-l] -cn CONFIG_NAME [-pn PROJECT_NAME] [-tn TRIAL_NAME] [-sn SUBJECT_NAME] [--export]
+                            [--filter] [--keep_trial_open] [--hide_quality_check]
 
     Example:
         python pipeline_runner.py -v -l -cn "nushu_pipeline_series" -pn "D:\HPL\pipeline_test_2" -tn "20241107T102745Z_semitandem-r" -sn "subject" --keep_trial_open
 
     Options:
     --------
-    Run 'python pipeline_runner.py -h' for options.
+    Run 'python pipeline_runner.py -h' for option descriptions.
 
     Returns:
     --------

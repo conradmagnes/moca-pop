@@ -18,10 +18,20 @@
 
     Run `python interactive_score_analyzer.py -h` for more information on how to use this script.
 
-    Example usage:
+    Usage:
     --------------
-    python .\moca_pop\aux_scripts\interactive_score_analyzer\app.py -pn shoe_stepping -tn trial01 -sn subject --offline --frame 4000 --rb_name Right_Foot --scoring_name foot  
+        python app.py [-h] [-v] [-off] [-pn PROJECT_NAME] [-sn SUBJECT_NAME] [--rb_name RB_NAME] [-tn TRIAL_NAME]
+              [--scoring_name SCORING_NAME] [--ignore_symmetry] [--frame FRAME]
+
+    Examples:
+        python .\moca_pop\aux_scripts\interactive_score_analyzer\app.py -pn shoe_stepping -tn trial01 -sn subject --offline --frame 4000 --rb_name Right_Foot --scoring_name foot  
     
+    run 'python app.py -h' for detailed option descriptions.
+
+    Returns:
+    --------
+    0 if successful / exited, -1 if failed.
+
     @author C. McCarthy
 """
 
