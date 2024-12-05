@@ -15,7 +15,7 @@ import os
 
 from moca_pop.config import directory
 from moca_pop.utils import json_utils
-import moca_pop.scripts.pipeline_runner.pipeline as pipeline
+import moca_pop.aux_scripts.pipeline_runner.pipeline as pipeline
 
 rl_pipeline = pipeline.Pipeline(name="Reconstruct And Label")
 
@@ -29,7 +29,7 @@ default_pipeline_series = pipeline.PipelineSeries(
 )
 
 model_json = default_pipeline_series.model_dump_json(indent=4)
-output_dir = os.path.join(directory.SCRIPTS_DIR, "pipeline_runner", "config")
+output_dir = os.path.join(directory.AUX_DIR, "pipeline_runner", "config")
 output_fn = os.path.join(output_dir, "vicon_default_example.json")
 
 with open(output_fn, "w") as f:

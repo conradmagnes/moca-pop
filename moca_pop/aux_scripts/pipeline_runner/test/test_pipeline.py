@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import Mock
 from pydantic import ValidationError
 
-from moca_pop.scripts.pipeline_runner.pipeline import (
+from moca_pop.aux_scripts.pipeline_runner.pipeline import (
     AttributeGate,
     Pipeline,
     PipelineSeries,

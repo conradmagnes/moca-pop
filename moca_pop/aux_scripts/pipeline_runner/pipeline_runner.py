@@ -48,7 +48,7 @@ import pydantic
 from moca_pop.config import logger, directory
 
 from moca_pop.utils import json_utils, vicon_utils, quality_check as qc
-import moca_pop.scripts.pipeline_runner.pipeline as pipeline
+import moca_pop.aux_scripts.pipeline_runner.pipeline as pipeline
 
 LOGGER = logging.getLogger("PipelineRunner")
 
@@ -67,7 +67,7 @@ def validate_config_name(config_name):
     if os.path.exists(config_name):
         config_path = os.path.normpath(config_name)
     else:
-        config_dir = os.path.join(directory.SCRIPTS_DIR, "pipeline_runner", "config")
+        config_dir = os.path.join(directory.AUX_DIR, "pipeline_runner", "config")
         cn = config_name.split(".")[0]
         config_path = os.path.join(config_dir, f"{cn}.json")
         if not os.path.exists(config_path):

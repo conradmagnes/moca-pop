@@ -14,6 +14,7 @@ If no item is present for a given section, have it say None.
 
 ### Changed
 - **Renamed Repo to `moca-pop`**
+- Moved `pipeline_runner` from `scripts` to `aux_scripts`
 - Propogated renaming changes
 - Updated README with demo videos
 

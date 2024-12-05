@@ -37,7 +37,7 @@ import time
 
 from moca_pop.config import logger, directory
 from moca_pop.utils import dist_utils
-import moca_pop.scripts.pipeline_runner.pipeline_runner as npr
+import moca_pop.aux_scripts.pipeline_runner.pipeline_runner as npr
 
 LOGGER = logging.getLogger("BatchRunner")
 
@@ -146,7 +146,7 @@ def main():
     LOGGER.info(f"Trials: {', '.join(trials)}")
 
     pipeline_runner_path = os.path.join(
-        directory.SCRIPTS_DIR, "pipeline_runner", "pipeline_runner.py"
+        directory.AUX_DIR, "pipeline_runner", "pipeline_runner.py"
     )
 
     common_args = ["--export", "-cn", config_path, "-pn", project_path]
