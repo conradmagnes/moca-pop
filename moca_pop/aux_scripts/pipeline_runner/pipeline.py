@@ -232,7 +232,8 @@ class PipelineSeries(BaseModel):
             ran = pipeline.run(vicon, gate_checks=gate_checks, *args, **kwargs)
             if ran == -1 and self.break_on_fail:
                 if self.propogate_fail:
-                    LOGGER.error(f"Pipeline {pipeline.name} caused series to fail.")
+                    if isinstance(pipeline, Pipeline):
+                        LOGGER.error(f"Pipeline {pipeline.name} caused series to fail.")
                     return -1
                 return 0
             if ran == 1 and self.break_on_skip:

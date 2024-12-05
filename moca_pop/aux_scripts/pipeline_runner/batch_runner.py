@@ -16,7 +16,7 @@
 
     Example: 
         python batch_runner.py -v -l -cn "nushu_pipeline_series.json" -pp "D:\HPL\pipeline_test_2" --include "20241107T104520Z_step-forward-r,20241107T104613Z_step-forward-l"
-        python batch_runner.py -v -l -cn "nushu_pipeline_series.json" -pp "D:\HPL\t03" --include "20241028T133708Z_together"
+        python batch_runner.py -v -l -cn "nushu_pipeline_series.json" -pp "D:\HPL\t03" -sn "nushu" --ledger "ledger.txt"
     Options:
     --------
     Run 'python batch_runner.py -h' for options.
@@ -40,6 +40,21 @@ from moca_pop.utils import dist_utils
 import moca_pop.aux_scripts.pipeline_runner.pipeline_runner as npr
 
 LOGGER = logging.getLogger("BatchRunner")
+
+
+def read_ledger(ledger_path):
+    """!Read a ledger file containing trial names to include.
+
+    @param ledger_path Path to the ledger file.
+
+    @return trial_names List of trial names.
+    """
+    with open(ledger_path, "r") as f:
+        trial_names = f.read().splitlines()
+
+    if len(trial_names) == 0 and "," in trial_names[0]:
+        trial_names = trial_names[0].split(",")
+    return trial_names
 
 
 def configure_parser():
@@ -87,6 +102,17 @@ def configure_parser():
         type=str,
         default="",
         help="Comma-separated list of trials to exclude",
+    )
+    parser.add_argument(
+        "--ledger",
+        type=str,
+        default="",
+        help="Path to a text file containing trial names to include",
+    )
+    parser.add_argument(
+        "--update_ledger",
+        action="store_true",
+        help="Remove names from ledger if pipeline completes successfully.",
     )
 
     parser.add_argument(
@@ -136,6 +162,20 @@ def main():
         f.split(".")[0] for f in os.listdir(project_path) if f.endswith(".Trial.enf")
     ]
     included_trials = args.include.split(",") if args.include else []
+
+    ledger_files = []
+    if args.ledger:
+        ledger_path = (
+            args.ledger
+            if os.path.isabs(args.ledger)
+            else os.path.join(project_path, args.ledger)
+        )
+        if not os.path.isfile(ledger_path):
+            LOGGER.error(f"Invalid ledger path: {args.ledger}")
+            exit(-1)
+        ledger_files = read_ledger(ledger_path)
+        included_trials.extend(ledger_files)
+
     if included_trials:
         trials = [t for t in trials if t in included_trials]
 
@@ -159,6 +199,7 @@ def main():
     if args.filter:
         common_args.append("--filter")
 
+    success_ledger = []
     for trial in trials:
         trial_start = time.time()
         LOGGER.info(f"Running pipeline for trial: {trial}")
@@ -171,11 +212,17 @@ def main():
         )
         if process.returncode != 0:
             LOGGER.error(f"Pipeline Runner failed for trial: {trial}")
-            break
+            continue
 
         LOGGER.info(
             "Trial runner completed in {:.1f}s".format(time.time() - trial_start)
         )
+        success_ledger.append(trial)
+
+    if args.update_ledger and ledger_files:
+        with open(ledger_path, "w") as f:
+            f.write("\n".join([t for t in ledger_files if t not in success_ledger]))
+        LOGGER.info("Updated ledger file.")
 
     LOGGER.info(
         "Batch Runner complete. Time elapsed: {:.1f}s".format(time.time() - start)

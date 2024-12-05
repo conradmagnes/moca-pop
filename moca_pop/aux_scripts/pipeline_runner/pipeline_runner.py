@@ -239,7 +239,7 @@ def main():
     LOGGER.info(f"Subject: {subject_name}")
 
     gate_checks = {"export": args.export, "filter": args.filter}
-    pipeline_series.run(
+    run_result = pipeline_series.run(
         vicon,
         gate_checks=gate_checks,
         subject_name=subject_name,
@@ -259,9 +259,9 @@ def main():
         vicon.CloseTrial(30)
 
     LOGGER.info(
-        "Pipeline complete. Total duration: {:.2f} seconds.".format(time.time() - start)
+        "Pipeline ended. Total duration: {:.2f} seconds.".format(time.time() - start)
     )
-    exit(0)
+    exit(run_result)
 
 
 def test_main_with_args():
