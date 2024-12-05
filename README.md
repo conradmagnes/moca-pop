@@ -18,6 +18,13 @@ extended to work with other motion capture systems.
 
 ![test](/media/test_unassign.gif)
 
+## t
+
+![test2](/media/test_unassign_700.gif)
+
+## t2
+![test3](/media/test_unassign_900.gif)
+
 ## Installation
 
 This package was developed and tested using Python 3.11.9. It is recommended to use a virtual environment to manage dependencies.
