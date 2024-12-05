@@ -12,7 +12,7 @@
 
     Usage:
     ------
-    python print_trial_names.py -pn /path/to/project/directory -wo --only_processed
+    python print_trial_names.py -off -pn <path_to_project>
 
     Options:
     --------

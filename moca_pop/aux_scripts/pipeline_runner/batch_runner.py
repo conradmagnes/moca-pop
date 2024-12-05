@@ -12,11 +12,12 @@
     Usage:
     ------
 
-    python batch_runner.py -cn <config_name> -pp <project_path> --exclude <trials_to_exclude>
+    python batch_runner.py -cn <config_name> -pp <project_path>
 
-    Example: 
+    Examples: 
         python batch_runner.py -v -l -cn "nushu_pipeline_series.json" -pp "D:\HPL\pipeline_test_2" --include "20241107T104520Z_step-forward-r,20241107T104613Z_step-forward-l"
-        python batch_runner.py -v -l -cn "nushu_pipeline_series.json" -pp "D:\HPL\t03" -sn "nushu" --ledger "ledger.txt"
+        python batch_runner.py -v -l -cn "nushu_pipeline_series.json" -pp "D:\HPL\t03" -sn "nushu" --ledger "ledger.txt" --update_ledger
+
     Options:
     --------
     Run 'python batch_runner.py -h' for options.

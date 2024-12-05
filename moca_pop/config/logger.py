@@ -64,7 +64,7 @@ def generate_log_filename(name: str, timestamp: str = None):
     @param timestamp Timestamp to use in the filename
     """
     timestamp = NOW_STRING if timestamp is None else timestamp
-    return f"{name}_{timestamp}.log"
+    return f"{timestamp}_{name}.log"
 
 
 def generate_file_handler(name: str = None, mode: str = None):
