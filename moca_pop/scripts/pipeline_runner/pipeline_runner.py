@@ -20,10 +20,10 @@
     Usage:
     ------
 
-    python pipeline_runner.py -off -cn <config_name> -pp <project_path> -tn <trial_name> -sn <subject_name>
+    python pipeline_runner.py -off -cn <config_name> -pn <project_name> -tn <trial_name> -sn <subject_name>
 
     Example:
-        python pipeline_runner.py -v -l -e -pp "D:\HPL\pipeline_test_2" -tn "20241107T102745Z_semitandem-r" -sn "subject"
+        python pipeline_runner.py -v -l -cn "nushu_pipeline_series" -pn "D:\HPL\pipeline_test_2" -tn "20241107T102745Z_semitandem-r" -sn "subject" --keep_trial_open
 
     Options:
     --------

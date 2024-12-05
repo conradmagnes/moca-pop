@@ -4,8 +4,8 @@ This changelog is a record of all notable changes made to the `MOCA-POP`.
 
 Entries should be prepended to the list below before merging on to `main`.
 Entries should have be named with the date of the merge in the format `YYYY-MM-DD`.
-Each entry has to feature the following sections: **Added**, **Changed**,
-**Removed**, and **Fixed**.
+Each entry has to feature the following sections: **Added**, **Changed**, and
+**Removed**.
 If no item is present for a given section, have it say None.
 
 ## 2024-12-04
