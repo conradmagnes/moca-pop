@@ -113,7 +113,7 @@ def validate_file_paths(vicon, project_name, trial_name):
 def configure_parser():
     """!Configure the argument parser."""
     parser = argparse.ArgumentParser(
-        description="Unassign rigid body markers based on residual scores."
+        description="Run a series of pipelines in Vicon Nexus to process motion capture data."
     )
     parser.add_argument(
         "-v",

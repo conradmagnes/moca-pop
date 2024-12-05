@@ -167,8 +167,8 @@ A batch runner is also provided to execute pipeline runners for several trials i
 
 To view usage information, check the following:
 ```bash
-python moca_pop/scripts/pipeline_runner/pipeline_runner.py --help
-python moca_pop/scripts/pipeline_runner/batch_runner.py run --help
+python moca_pop/aux_scripts/pipeline_runner/pipeline_runner.py --help
+python moca_pop/aux_scripts/pipeline_runner/batch_runner.py run --help
 ```
 
 ## Contributing

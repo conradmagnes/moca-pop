@@ -23,8 +23,8 @@
     The results can be saved to a file, and the user can inspect individual frames using the Interactive Score Analyzer.
     
     This script can be run in both 'online' and 'offline' modes. 
-    In online mode, the script will connect to Vicon Nexus and process the active trial. The user will be prompted to swap and remove markers.
-    In offline mode, the script will process a C3D file. The file will not be modified, and the user will not be prompted to swap or remove markers.
+    In online mode, the script will connect to Vicon Nexus and process the active trial. The user will be prompted to swap and unassign markers.
+    In offline mode, the script will process a C3D file. The file will not be modified, and the user will not be prompted to swap or unassign markers.
 
     Usage:
     ------
@@ -195,7 +195,7 @@ def generate_displacement_candidates(
     """!Generate a list of candidate displacements based on swap candidates.
 
     If the source of a swap is not also a target of another swap, the source is considered a candidate for displacement.
-    In other words, the target will be moved to the source, and the source will be removed.
+    In other words, the target will be moved to the source, and the source will be unassignd.
 
     If the target of a swap is not also a source of another swap, it is compared to the current marker position.
     If the new source position will bring the target closer to the calibrated position, the swap is maintained.
@@ -351,7 +351,7 @@ def swap_and_remove_markers_from_online_trial(
     """!Swap and remove markers from an online trial based on the results.
 
     For swap candidates {source:target}, the target marker will be moved to the position of the source marker.
-    Markers in the displacement list will be removed from the trial.
+    Markers in the displacement list will be unassignd from the trial.
 
     @param vicon Vicon Nexus instance.
     @param subject_name Name of the subject.
@@ -423,7 +423,7 @@ def write_results_to_file(results: dict, output_fp: str, output_type: str = "txt
 def configure_parser():
     """!Configure the argument parser."""
     parser = argparse.ArgumentParser(
-        description="Unassign rigid body markers based on residual scores."
+        description="Swap and unassign mislabeled markers in a Vicon Nexus trial."
     )
 
     parser.add_argument(
@@ -455,7 +455,7 @@ def configure_parser():
         "-p",
         "--preserve_markers",
         action="store_true",
-        help="Do not swap or remove markers from the trial.",
+        help="Do not swap or unassign markers from the trial.",
     )
     parser.add_argument(
         "-s",
@@ -474,7 +474,7 @@ def configure_parser():
         "-off",
         "--offline",
         action="store_true",
-        help="Processes c3d files offline rather than connected to Nexus. Markers will not be removed from the trial.",
+        help="Processes c3d files offline rather than connected to Nexus. Markers will not be unassignd from the trial.",
     )
 
     parser.add_argument(
@@ -684,13 +684,13 @@ def main():
 
                 LOGGER.info("ISA has shutdown.")
 
-    ## Swap and Remove Markers
+    ## Swap and unassign Markers
     if not (offline or args.preserve_markers):
         if args.force_true:
             ui = 0
         else:
             ui = hmi.get_user_input(
-                "Swap and remove markers in trial? (y/n): ",
+                "Swap and unassign markers in trial? (y/n): ",
                 exit_on_quit=True,
                 choices=[hmi.YES_KEYWORDS, hmi.NO_KEYWORDS],
                 num_tries=5,
