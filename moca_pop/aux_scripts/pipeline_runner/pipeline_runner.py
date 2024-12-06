@@ -48,7 +48,7 @@ import pydantic
 
 from moca_pop.config import logger, directory
 
-from moca_pop.utils import json_utils, vicon_utils, quality_check as qc
+from moca_pop.utils import json_utils, vicon_utils, argparse_utils, quality_check as qc
 import moca_pop.aux_scripts.pipeline_runner.pipeline as pipeline
 
 LOGGER = logging.getLogger("PipelineRunner")
@@ -229,13 +229,7 @@ def main():
         LOGGER.info(f"Opening trial: {trial_path}")
         vicon.OpenTrial(trial_path, 200)
 
-    if not args.subject_name:
-        subject_name = vicon.GetSubjectNames()[0]
-    elif args.subject_name not in vicon.GetSubjectNames():
-        LOGGER.error(f"Subject not found: {args.subject_name}")
-        exit(-1)
-    else:
-        subject_name = args.subject_name
+    subject_name = argparse_utils.validate_online_subject_name(vicon, args.subject_name)
 
     LOGGER.info(f"Subject: {subject_name}")
 

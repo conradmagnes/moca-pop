@@ -66,7 +66,7 @@ fill_gap_pipelines = [
 ]
 
 fill_gap_series = pipeline.PipelineSeries(
-    pipelines=fill_gap_pipelines, break_on_skip=True
+    pipelines=fill_gap_pipelines, break_on_skip=True, propogate_fail=False
 )
 
 filter_pipeline = pipeline.Pipeline(

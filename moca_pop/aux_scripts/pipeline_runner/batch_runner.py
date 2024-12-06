@@ -51,10 +51,11 @@ def read_ledger(ledger_path):
     @return trial_names List of trial names.
     """
     with open(ledger_path, "r") as f:
-        trial_names = f.read().splitlines()
+        trial_names = [line.strip() for line in f.readlines() if line.strip()]
 
-    if len(trial_names) == 0 and "," in trial_names[0]:
+    if len(trial_names) == 1 and "," in trial_names[0]:
         trial_names = trial_names[0].split(",")
+
     return trial_names
 
 
