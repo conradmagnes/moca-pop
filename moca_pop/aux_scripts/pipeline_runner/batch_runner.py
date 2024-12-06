@@ -17,7 +17,7 @@
 
     Examples: 
         python batch_runner.py -v -l -cn "nushu_pipeline_series.json" -pp "D:\HPL\pipeline_test_2" --include "20241107T104520Z_step-forward-r,20241107T104613Z_step-forward-l"
-        python batch_runner.py -v -l -cn "nushu_pipeline_series.json" -pp "D:\HPL\t03" -sn "nushu" --ledger "ledger.txt" --update_ledger
+        python batch_runner.py -v -l -cn "nushu_pipeline_series.json" -pp "D:\HPL\t04" -sn "nushu" --ledger "ledger.txt" --update_ledger
 
 
     Run 'python batch_runner.py -h' for detailed option descriptions.
