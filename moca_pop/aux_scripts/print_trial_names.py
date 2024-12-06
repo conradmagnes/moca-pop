@@ -12,16 +12,12 @@
 
     Usage:
     ------
-    python print_trial_names.py -off -pn <path_to_project>
+    python print_trial_names.py [-h] [-off] [-wo] [-pn PROJECT_NAME] [-fn FILE_NAME] [--only_processed] [--only_unprocessed] [--oneline]
 
-    Options:
-    --------
-    -off, --offline: Run the script in offline mode. 
-    -pn, --project_name: Path to the project directory. 
-    -wo, --write_out: Write the trial names to a text file. 
-    --only_processed: Only print processed trials. 
-    --only_unprocessed: Only print unprocessed trials.
-    --oneline: Print / write the trial names on one line.
+    Run 'python print_trial_names.py -h' for detailed options descriptions.
+
+    Example:
+        python print_trial_names.py -off -pn "D:\HPL\t01" -wo -fn "ledger.txt" --only_processed
 
     Returns:
     --------
@@ -65,6 +61,12 @@ def configure_parser():
         action="store_true",
         help="Run the script in offline mode.",
     )
+    parser.add_argument(
+        "-wo",
+        "--write_out",
+        action="store_true",
+        help="Write the trial names to a text file.",
+    )
 
     parser.add_argument(
         "-pn",
@@ -74,12 +76,11 @@ def configure_parser():
     )
 
     parser.add_argument(
-        "-wo",
-        "--write_out",
-        action="store_true",
-        help="Write the trial names to a text file.",
+        "-fn",
+        "--file_name",
+        type=str,
+        help="Name of the output file.",
     )
-
     parser.add_argument(
         "--only_processed",
         action="store_true",
@@ -119,7 +120,7 @@ def main():
     else:
         from viconnexusapi import ViconNexus
 
-        vicon = ViconNexus()
+        vicon = ViconNexus.ViconNexus()
         project_dir, _ = vicon.GetTrialName()
 
     project_files = os.listdir(project_dir)
@@ -139,8 +140,13 @@ def main():
             if not os.path.isfile(os.path.join(project_dir, f"{x}.c3d"))
         ]
 
+    logging.root.info(f"Found {len(trial_names)} trials in: {project_dir}")
+
     if args.write_out:
-        output_fp = os.path.join(project_dir, "trial_names.txt")
+        fn = args.file_name if args.file_name else "trial_names.txt"
+        if not fn.endswith(".txt"):
+            fn = f"{fn}.txt"
+        output_fp = os.path.join(project_dir, fn)
         write_file(output_fp, trial_names, args.oneline)
         logging.root.info(f"Trial names written to: {output_fp}")
     elif args.oneline:

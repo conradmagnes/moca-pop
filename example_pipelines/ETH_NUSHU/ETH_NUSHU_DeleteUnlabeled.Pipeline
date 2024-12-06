@@ -1,0 +1,13 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no" ?>
+<Pipeline>
+
+  <Entry DisplayName="Delete Unlabeled Trajectories" Enabled="1" OperationId="36" OperationName="DeleteUnlabeledTrajectories">
+    <ParamList name="">
+      <Param name="EnableMaxLength" value="false"/>
+      <Param name="MaxLength" value="25"/>
+      <Param macro="SELECTED_START_FRAME" name="START_FRAME"/>
+      <Param macro="SELECTED_END_FRAME" name="LAST_FRAME"/>
+    </ParamList>
+  </Entry>
+
+</Pipeline>

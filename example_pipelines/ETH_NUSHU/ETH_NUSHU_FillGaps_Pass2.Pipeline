@@ -1,0 +1,67 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no" ?>
+<Pipeline>
+
+  <Entry DisplayName="Kinematic Fit" Enabled="1" OperationId="322" OperationName="ComputeSubjectMotion">
+    <ParamList name="">
+      <Param macro="SELECTED_START_FRAME" name="START_FRAME"/>
+      <Param macro="SELECTED_END_FRAME" name="LAST_FRAME"/>
+      <Param name="Local.GraphParamsFilename"/>
+      <Param name="Local.PostGlobalItemsFilename"/>
+      <Param macro="ACTIVE_SUBJECTS" name="SUBJECTS"/>
+      <Param name="PriorImportance" value="25"/>
+      <Param name="MeanPoseRatio" value="1"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Fill Gaps - Kinematic" Enabled="0" OperationId="0" OperationName="FillGapsKinematic">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="100"/>
+      <Param name="MaxGapFillType" value="0"/>
+      <Param macro="FIRST_FULL_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
+      <Param macro="ALL_SEGMENTS" name="SegmentToUse"/>
+      <Param macro="ACTIVE_SUBJECTS" name="SUBJECTS"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Right Heel (large)" Enabled="0" OperationId="80" OperationName="FillGapsRigidBody">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="15"/>
+      <Param name="MaxGapFillType" value="1"/>
+      <Param macro="SELECTED_START_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
+      <Param name="Trajectories" value="Right_HB,Right_HL,Right_ML,Right_MM,Right_HM"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Right Toe (large)" Enabled="0" OperationId="81" OperationName="FillGapsRigidBody">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="15"/>
+      <Param name="MaxGapFillType" value="1"/>
+      <Param macro="SELECTED_START_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
+      <Param name="Trajectories" value=" Right_TM,Right_TF,Right_TL,Right_TH"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Left Heel (large)" Enabled="0" OperationId="82" OperationName="FillGapsRigidBody">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="15"/>
+      <Param name="MaxGapFillType" value="1"/>
+      <Param macro="SELECTED_START_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
+      <Param name="Trajectories" value=" Left_HM,Left_MM,Left_ML,Left_HL,Left_HB"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Left Toe (large)" Enabled="0" OperationId="83" OperationName="FillGapsRigidBody">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="30"/>
+      <Param name="MaxGapFillType" value="1"/>
+      <Param macro="SELECTED_START_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
+      <Param name="Trajectories" value=" Left_TM,Left_TF,Left_TL,Left_TH"/>
+    </ParamList>
+  </Entry>
+
+</Pipeline>

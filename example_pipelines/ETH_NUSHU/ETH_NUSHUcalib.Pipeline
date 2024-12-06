@@ -1,0 +1,249 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no" ?>
+<Pipeline>
+
+  <Entry DisplayName="Reconstruct" Enabled="1" OperationId="65" OperationName="ComputeRecons">
+    <ParamList name="">
+      <Param macro="SELECTED_START_FRAME" name="START_FRAME"/>
+      <Param macro="SELECTED_END_FRAME" name="LAST_FRAME"/>
+      <Param name="CircleFitter.ThreadCount" value="0"/>
+      <Param name="CircleFitter.Enabled" value="true"/>
+      <Param name="CentroidSystem.RefitAlreadyFittedBlobs" value="false"/>
+      <Param name="CircleFitterType" value="FastSplit"/>
+      <Param name="CircularityTweak" value="0"/>
+      <Param name="UseNonGreedyBlobSplitting" value="false"/>
+      <Param name="GreedyScoreThreshold" value="0.65000000000000002"/>
+      <Param name="PreferCameraSpecificSettings" value="true"/>
+      <Param name="VideoCentroids.PreferCameraSpecificSettings" value="true"/>
+      <Param name="FastFitCircularityThreshold" value="0.25"/>
+      <Param name="VideoCentroids.FastFitCircularityThreshold" value="0.29999999999999999"/>
+      <Param name="MinimumFastSplitWholeBlobRadius" value="1.5"/>
+      <Param name="FastSplitPixelBudget" value="1000000"/>
+      <Param name="OverrideCircularityThresholdSplit" value="0.44"/>
+      <Param name="CentroidSystem.AllowSinglePixelCentroids" value="false"/>
+      <Param name="Reconstructor.Enabled" value="true"/>
+      <Param name="Reconstructor.ThreadCount" value="2"/>
+      <Param name="Reconstructor.3DPredictions" value="false"/>
+      <Param name="EnvironmentalDriftTolerance" value="1.5"/>
+      <Param name="MinCams" value="3"/>
+      <Param name="MinCamsWithPrediction" value="3"/>
+      <Param name="MinSeparation" value="27"/>
+      <Param name="MinCentroidRadius" value="0"/>
+      <Param name="MaxCentroidRadius" value="50"/>
+      <Param name="MinReconRadius" value="0"/>
+      <Param name="MaxReconRadius" value="1000"/>
+      <Param name="PredictionMatchScoreFactor" value="2"/>
+      <Param name="MinReconX" value="-100000"/>
+      <Param name="MinReconY" value="-100000"/>
+      <Param name="MinReconZ" value="-100000"/>
+      <Param name="MaxReconX" value="100000"/>
+      <Param name="MaxReconY" value="100000"/>
+      <Param name="MaxReconZ" value="100000"/>
+      <Param name="MatcherLowerMatchLimit" value="0"/>
+      <Param name="MatcherUpperMatchLimit" value="0"/>
+      <Param name="MatcherAlwaysSort" value="false"/>
+      <Param name="StartupError" value="150"/>
+      <Param name="PredictionError" value="150"/>
+      <Param name="Reconstructor.MaxTrajLengthToDelete" value="0"/>
+      <Param name="FitReconVolToTarget" value="false"/>
+      <Param name="Local.GraphParamsFilename"/>
+      <Param name="Local.PostGlobalItemsFilename"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Autolabel Static" Enabled="0" OperationId="19" OperationName="TPoseLabel">
+    <ParamList name="" version="1">
+      <Param macro="NOW" name="FRAME"/>
+      <Param name="Tolerance" value="0.025000000000000001"/>
+      <Param name="SeparationDistance" value="1"/>
+      <Param name="ClearLabels" value="true"/>
+      <Param macro="ACTIVE_SUBJECTS" name="SUBJECTS"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Scale Subject VSK" Enabled="0" OperationId="48" OperationName="ScaleSubject">
+    <ParamList name="">
+      <Param macro="NOW" name="Frame"/>
+      <Param name="MinMarkerFraction" value="1"/>
+      <Param name="ScalingImportance" value="1"/>
+      <Param name="ScalingFactor" value="1"/>
+      <Param name="OverwritePrior" value="true"/>
+      <Param name="RenderingMethod" value="0"/>
+      <Param macro="ACTIVE_SUBJECTS" name="SUBJECTS"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Static Skeleton Calibration - Markers Only" Enabled="0" OperationId="49" OperationName="KinematicCalibrateStaticMarkersOnly">
+    <ParamList name="">
+      <Param macro="CURRENT_MODEL" name="Model"/>
+      <Param macro="NOW" name="FirstFrame"/>
+      <Param macro="NOW" name="LastFrame"/>
+      <Param macro="NOW" name="TPoseFrame"/>
+      <Param name="QualityOfFit" value="0"/>
+      <Param name="ActiveFrames" value="320"/>
+      <Param macro="AUTO_THREADS" name="NumThreads"/>
+      <Param name="FrameSelectionMode" value="2"/>
+      <Param name="MeanPoseImportance" value="1.0000000000000001e-05"/>
+      <Param name="JointPositionImportance" value="0.20000000000000001"/>
+      <Param name="MarkerPositionImportance" value="0.20000000000000001"/>
+      <Param name="UseParamPriors" value="true"/>
+      <Param name="UseTemplateStatistics" value="true"/>
+      <Param name="RemoveOptionalMarkers" value="false"/>
+      <Param name="RemoveConstraintMarkers" value="false"/>
+      <Param name="IgnoreConstraintMarkers" value="false"/>
+      <Param name="IgnoreMarkers" value=""/>
+      <Param name="TPoseMarkers" value=""/>
+      <Param name="CalibrationMode" value="1"/>
+      <Param name="ProcessingClip"/>
+      <Param name="CopyToClip"/>
+      <Param macro="ACTIVE_SUBJECTS" name="SUBJECTS"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Label" Enabled="0" OperationId="24" OperationName="ComputeLabels">
+    <ParamList name="">
+      <Param macro="SELECTED_START_FRAME" name="START_FRAME"/>
+      <Param macro="SELECTED_END_FRAME" name="LAST_FRAME"/>
+      <Param macro="ACTIVE_SUBJECTS" name="SUBJECTS"/>
+      <Param name="RequireLabellingClusters" value="false"/>
+      <Param name="Labeller.RigidBodiesMinMatchCount" value="4"/>
+      <Param name="EntranceThreshold" value="0.84999999999999998"/>
+      <Param name="ExitThreshold" value="0.59999999999999998"/>
+      <Param name="Labeller.UseRobustBooting" value="false"/>
+      <Param name="BootingQualityHeuristic" value="0"/>
+      <Param name="BootingVersusTrackingHeuristic" value="0.5"/>
+      <Param name="TrackingQualityHeuristic" value="0"/>
+      <Param name="TrackingPriorImportance" value="1"/>
+      <Param name="BootingOutOfRangeBehaviour" value="FreezeAndUnlabelDownTheChain"/>
+      <Param name="TrackingOutOfRangeBehaviour" value="DoNothing"/>
+      <Param name="JointRangeThreshold" value="1"/>
+      <Param name="TrackingJointRangeThreshold" value="1"/>
+      <Param name="Labeller.EnforceRanges" value="false"/>
+      <Param name="Labeller.EnableTrackingLine" value="true"/>
+      <Param name="UseUnconstrainessScore" value="true"/>
+      <Param name="UnconstrainessEntranceThreshold" value="1"/>
+      <Param name="UnconstrainessExitThreshold" value="1.5"/>
+      <Param name="BootingKinematicFitThreshold" value="-50"/>
+      <Param name="LabelScore" value="1"/>
+      <Param name="MergerMarkerImportance" value="0.5"/>
+      <Param name="UnassignedReconProb" value="1e-10"/>
+      <Param name="UnassignedLabelProb" value="1.0000000000000001e-05"/>
+      <Param name="MarkerFitThreshold" value="1.7976931348623157e+308"/>
+      <Param name="TrackingKinematicFitThreshold" value="-50"/>
+      <Param name="LogMissingMarkerProbability" value="-18.420680743952367"/>
+      <Param name="OutOfRangePenalty" value="5"/>
+      <Param name="UseFlowFitPool" value="false"/>
+      <Param name="IncrementalLabeller" value="false"/>
+      <Param name="AllowSubjectReboot" value="true"/>
+      <Param name="RigidBodyTranslationSlack" value="100"/>
+      <Param name="RigidBodyRotationSlack" value="0.5"/>
+      <Param name="Labeller.UnlabelledBootingLines" value="0"/>
+      <Param name="SINGLE_PASS" value="false"/>
+      <Param name="Local.RemoveTemporaryOutput" value="true"/>
+      <Param name="Local.Pass1Filename"/>
+      <Param name="Local.Pass2Filename"/>
+      <Param name="Local.GraphParamsFilename"/>
+      <Param name="Local.PostGlobalItemsFilename"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Functional Skeleton Calibration" Enabled="0" OperationId="50" OperationName="KinematicCalibrate">
+    <ParamList name="" version="3">
+      <Param name="Model" value=""/>
+      <Param macro="SELECTED_START_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
+      <Param macro="FIRST_FULL_FRAME" name="TPoseFrame"/>
+      <Param name="QualityOfFit" value="0"/>
+      <Param name="ActiveFrames" value="320"/>
+      <Param macro="AUTO_THREADS" name="NumThreads"/>
+      <Param name="FrameSelectionMode" value="2"/>
+      <Param name="MeanPoseImportance" value="1.0000000000000001e-05"/>
+      <Param name="JointPositionImportance" value="0.20000000000000001"/>
+      <Param name="MarkerPositionImportance" value="0.20000000000000001"/>
+      <Param name="UseParamPriors" value="true"/>
+      <Param name="UseTemplateStatistics" value="false"/>
+      <Param name="RemoveOptionalMarkers" value="false"/>
+      <Param name="RemoveConstraintMarkers" value="false"/>
+      <Param name="IgnoreConstraintMarkers" value="false"/>
+      <Param name="IgnoreMarkers" value=""/>
+      <Param name="TPoseMarkers" value=""/>
+      <Param name="CalibrationMode" value="0"/>
+      <Param name="ProcessingClip"/>
+      <Param name="CopyToClip"/>
+      <Param macro="ACTIVE_SUBJECTS" name="SUBJECTS"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Update Skeleton Parameters" Enabled="0" OperationId="51" OperationName="UpdateSkeletonParams">
+    <ParamList name="">
+      <Param name="UpdateMarkerCov" value="true"/>
+      <Param name="UpdateParameters" value="true"/>
+      <Param name="UpdateJointMeanCovCov" value="true"/>
+      <Param name="UpdateJointRange" value="true"/>
+      <Param name="ProcessingClip"/>
+      <Param name="CopyToClip"/>
+      <Param macro="ACTIVE_SUBJECTS" name="SUBJECTS"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Delete Unlabeled Trajectories" Enabled="0" OperationId="35" OperationName="DeleteUnlabeledTrajectories">
+    <ParamList name="">
+      <Param name="EnableMaxLength" value="false"/>
+      <Param name="MaxLength" value="25"/>
+      <Param macro="SELECTED_START_FRAME" name="START_FRAME"/>
+      <Param macro="SELECTED_END_FRAME" name="LAST_FRAME"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Right Heel" Enabled="0" OperationId="54" OperationName="FillGapsRigidBody">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="100"/>
+      <Param name="MaxGapFillType" value="0"/>
+      <Param macro="SELECTED_START_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
+      <Param name="Trajectories" value="Right_HM,Right_MM,Right_ML,Right_HL,Right_HB"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Left Heel" Enabled="0" OperationId="55" OperationName="FillGapsRigidBody">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="100"/>
+      <Param name="MaxGapFillType" value="0"/>
+      <Param macro="SELECTED_START_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
+      <Param name="Trajectories" value="Left_HM,Left_MM,Left_ML,Left_HL,Left_HB"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Fill Gaps - Woltring" Enabled="0" OperationId="53" OperationName="FillGapsWoltring">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="10"/>
+      <Param name="MaxGapFillType" value="0"/>
+      <Param macro="SELECTED_START_FRAME" name="START_FRAME"/>
+      <Param macro="SELECTED_END_FRAME" name="LAST_FRAME"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Save Trial - C3D + VSK" Enabled="0" OperationId="36" OperationName="SaveOperation">
+    <ParamList name="">
+      <Param macro="SELECTED_START_FRAME" name="StartFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="EndFrame"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Export C3D" Enabled="0" OperationId="0" OperationName="Exportc3d">
+    <ParamList name="">
+      <Param macro="CURRENT_TRIAL" name="Filename"/>
+      <Param macro="SELECTED_START_FRAME" name="StartFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="EndFrame"/>
+      <Param name="Postfix" value=""/>
+      <Param name="IntegerFormat" value="false"/>
+      <Param name="SubjectPrefix" value="1"/>
+      <Param name="XAxis" value="4"/>
+      <Param name="YAxis" value="2"/>
+      <Param name="ZAxis" value="0"/>
+      <Param name="ProcessingClip"/>
+      <Param name="CopyToClip"/>
+    </ParamList>
+  </Entry>
+
+</Pipeline>
