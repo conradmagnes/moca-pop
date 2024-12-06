@@ -11,6 +11,9 @@ def get_binary_signal_edges(signal, pre_post="post"):
     @param signal Binary signal.
     @param pre_post Whether to return the pre or post edge of the signal.
     """
+    if len(signal) == 0:
+        raise ValueError("Signal is empty.")
+
     signal_cats = signal.copy()
     if isinstance(signal_cats, list):
         signal_cats = np.array(signal_cats)

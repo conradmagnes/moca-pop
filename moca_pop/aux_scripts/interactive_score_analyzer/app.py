@@ -61,7 +61,7 @@ import moca_pop.config.regex as regex
 import moca_pop.config.logger as logger
 from moca_pop.models.rigid_body import RigidBody, best_fit_transform
 from moca_pop.utils import c3d_parser, hmi, json_utils
-from moca_pop.utils import rigid_body_loader, model_template_loader
+from moca_pop.utils import rigid_body_loader, model_template_loader, vicon_utils
 from moca_pop.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
 
 import moca_pop.aux_scripts.interactive_score_analyzer.constants as isa_consts
@@ -1055,8 +1055,11 @@ def load_active_body(
     calibrated_body: RigidBody,
     ignore_symmetry: bool,
     rb_name: str,
-    trial_fp: str = None,
     frame: int = 0,
+    offline: bool = False,
+    trial_fp: str = None,
+    subject_name: str = "",
+    vicon=None,
 ):
     """!Load the active body from the trial file.
     If no trial file is provided, the active body is the same as the calibrated body.
@@ -1065,15 +1068,26 @@ def load_active_body(
     @param calibrated_body RigidBody object.
     @param ignore_symmetry Ignore symmetry labels in the Rigid Body.
     @param rb_name Name of the rigid body to analyze.
-    @param trial_fp Path to the trial file.
     @param frame Frame to analyze.
+    @param offline Whether to process offline.
+    @param trial_fp Path to the trial file (offline mode).
+    @param subject_name Name of the subject (online mode).
+    @param vicon ViconNexus instance (online mode).
     """
     if not trial_fp:
         return copy.deepcopy(calibrated_body)
 
-    c3d_reader = c3d_parser.get_reader(trial_fp)
-    marker_trajectories = c3d_parser.get_marker_trajectories(c3d_reader)
-    frames = c3d_parser.get_frames(c3d_reader)
+    if offline:
+        c3d_reader = c3d_parser.get_reader(trial_fp)
+        marker_trajectories = c3d_parser.get_marker_trajectories(c3d_reader)
+        frames = c3d_parser.get_frames(c3d_reader)
+    else:
+        if subject_name == "" or not vicon:
+            LOGGER.error("Subject name and ViconNexus instance must be provided.")
+            exit(-1)
+        marker_trajectories = vicon_utils.get_marker_trajectories(vicon, subject_name)
+        frames = vicon_utils.get_trial_frames(vicon)
+
     if frame in frames:
         frame = frames.index(frame)
     elif frame < 0 or frame >= len(frames):
@@ -1225,7 +1239,14 @@ def main():
 
     calibrated_body = load_calibrated_body(vsk_fp, ignore_symmetry, rb_name)
     active_body = load_active_body(
-        calibrated_body, ignore_symmetry, calibrated_body.name, trial_fp, frame
+        calibrated_body,
+        ignore_symmetry,
+        calibrated_body.name,
+        frame,
+        args.offline,
+        trial_fp,
+        subject_name,
+        vicon,
     )
 
     scoring_params = load_scoring_parameters(args.scoring_name)

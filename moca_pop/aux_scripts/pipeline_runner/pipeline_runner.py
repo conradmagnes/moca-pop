@@ -255,7 +255,7 @@ def main():
         qc.log_gaps(gaps)
         qc.log_labeled(labeled)
 
-    if not (args.keep_trial_open or is_open):
+    if not args.keep_trial_open:
         LOGGER.info("Closing trial.")
         vicon.CloseTrial(30)
 
