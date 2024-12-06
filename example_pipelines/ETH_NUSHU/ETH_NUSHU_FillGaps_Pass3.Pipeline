@@ -17,7 +17,7 @@
     <ParamList name="">
       <Param name="MaxGapToFill" value="30"/>
       <Param name="MaxGapFillType" value="1"/>
-      <Param macro="FIRST_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_START_FRAME" name="FirstFrame"/>
       <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
       <Param macro="ALL_SEGMENTS" name="SegmentToUse"/>
       <Param macro="ACTIVE_SUBJECTS" name="SUBJECTS"/>

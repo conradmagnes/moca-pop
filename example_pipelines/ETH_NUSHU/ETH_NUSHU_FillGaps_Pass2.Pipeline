@@ -1,7 +1,7 @@
 <?xml version="1.1" encoding="UTF-8" standalone="no" ?>
 <Pipeline>
 
-  <Entry DisplayName="Kinematic Fit" Enabled="1" OperationId="322" OperationName="ComputeSubjectMotion">
+  <Entry DisplayName="Kinematic Fit" Enabled="1" OperationId="657" OperationName="ComputeSubjectMotion">
     <ParamList name="">
       <Param macro="SELECTED_START_FRAME" name="START_FRAME"/>
       <Param macro="SELECTED_END_FRAME" name="LAST_FRAME"/>
@@ -13,18 +13,18 @@
     </ParamList>
   </Entry>
 
-  <Entry DisplayName="Fill Gaps - Kinematic" Enabled="1" OperationId="0" OperationName="FillGapsKinematic">
+  <Entry DisplayName="Fill Gaps - Kinematic" Enabled="1" OperationId="658" OperationName="FillGapsKinematic">
     <ParamList name="">
       <Param name="MaxGapToFill" value="100"/>
       <Param name="MaxGapFillType" value="0"/>
-      <Param macro="FIRST_FULL_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_START_FRAME" name="FirstFrame"/>
       <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
       <Param macro="ALL_SEGMENTS" name="SegmentToUse"/>
       <Param macro="ACTIVE_SUBJECTS" name="SUBJECTS"/>
     </ParamList>
   </Entry>
 
-  <Entry DisplayName="Right Heel (large)" Enabled="1" OperationId="80" OperationName="FillGapsRigidBody">
+  <Entry DisplayName="Right Heel (large)" Enabled="1" OperationId="659" OperationName="FillGapsRigidBody">
     <ParamList name="">
       <Param name="MaxGapToFill" value="15"/>
       <Param name="MaxGapFillType" value="1"/>
@@ -34,7 +34,7 @@
     </ParamList>
   </Entry>
 
-  <Entry DisplayName="Right Toe (large)" Enabled="1" OperationId="81" OperationName="FillGapsRigidBody">
+  <Entry DisplayName="Right Toe (large)" Enabled="1" OperationId="660" OperationName="FillGapsRigidBody">
     <ParamList name="">
       <Param name="MaxGapToFill" value="15"/>
       <Param name="MaxGapFillType" value="1"/>
@@ -44,7 +44,7 @@
     </ParamList>
   </Entry>
 
-  <Entry DisplayName="Left Heel (large)" Enabled="1" OperationId="82" OperationName="FillGapsRigidBody">
+  <Entry DisplayName="Left Heel (large)" Enabled="1" OperationId="661" OperationName="FillGapsRigidBody">
     <ParamList name="">
       <Param name="MaxGapToFill" value="15"/>
       <Param name="MaxGapFillType" value="1"/>
@@ -54,7 +54,7 @@
     </ParamList>
   </Entry>
 
-  <Entry DisplayName="Left Toe (large)" Enabled="1" OperationId="83" OperationName="FillGapsRigidBody">
+  <Entry DisplayName="Left Toe (large)" Enabled="1" OperationId="662" OperationName="FillGapsRigidBody">
     <ParamList name="">
       <Param name="MaxGapToFill" value="30"/>
       <Param name="MaxGapFillType" value="1"/>
