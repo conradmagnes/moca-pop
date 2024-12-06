@@ -1,0 +1,66 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no" ?>
+<Pipeline>
+
+  <Entry DisplayName="Fill Gaps - Woltring" Enabled="1" OperationId="78" OperationName="FillGapsWoltring">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="5"/>
+      <Param name="MaxGapFillType" value="0"/>
+      <Param macro="SELECTED_START_FRAME" name="START_FRAME"/>
+      <Param macro="SELECTED_END_FRAME" name="LAST_FRAME"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Right Heel" Enabled="1" OperationId="71" OperationName="FillGapsRigidBody">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="50"/>
+      <Param name="MaxGapFillType" value="0"/>
+      <Param macro="SELECTED_START_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
+      <Param name="Trajectories" value="Right_HM,Right_MM,Right_ML,Right_HL,Right_HB"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Right Toe" Enabled="1" OperationId="72" OperationName="FillGapsRigidBody">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="50"/>
+      <Param name="MaxGapFillType" value="0"/>
+      <Param macro="SELECTED_START_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
+      <Param name="Trajectories" value="Right_TM,Right_TF,Right_TL,Right_TH"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Left Heel" Enabled="1" OperationId="73" OperationName="FillGapsRigidBody">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="50"/>
+      <Param name="MaxGapFillType" value="0"/>
+      <Param macro="SELECTED_START_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
+      <Param name="Trajectories" value="Left_HM,Left_MM,Left_ML,Left_HL,Left_HB"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Left Toe" Enabled="1" OperationId="74" OperationName="FillGapsRigidBody">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="50"/>
+      <Param name="MaxGapFillType" value="0"/>
+      <Param macro="SELECTED_START_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
+      <Param name="Trajectories" value="Left_TM,Left_TF,Left_TL,Left_TH"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Fill Gaps - Pattern" Enabled="1" OperationId="51" OperationName="FillGapsPattern">
+    <ParamList name="">
+      <Param name="MaxGapToFill" value="25"/>
+      <Param name="MaxGapFillType" value="0"/>
+      <Param macro="SELECTED_START_FRAME" name="START_FRAME"/>
+      <Param macro="SELECTED_END_FRAME" name="LAST_FRAME"/>
+      <Param macro="ALL_MARKERS" name="Trajectories"/>
+      <Param macro="AUTO_DONOR_MARKERS" name="DonorTraj"/>
+      <Param name="AllowUnlabeled" value="false"/>
+      <Param name="AllowDifferentSegment" value="false"/>
+    </ParamList>
+  </Entry>
+
+</Pipeline>

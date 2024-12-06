@@ -1,0 +1,15 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no" ?>
+<Pipeline>
+
+  <Entry DisplayName="Filter Trajectories - Butterworth" Enabled="1" OperationId="66" OperationName="FilterTrajectoriesButterworth">
+    <ParamList name="">
+      <Param macro="FIRST_FRAME" name="FirstFrame"/>
+      <Param macro="SELECTED_END_FRAME" name="LastFrame"/>
+      <Param name="CutoffFrequency" value="6"/>
+      <Param name="FilterOrder" value="1"/>
+      <Param name="FilterType" value="0"/>
+      <Param macro="ALL_TRAJECTORIES" name="Trajectories"/>
+    </ParamList>
+  </Entry>
+
+</Pipeline>

@@ -1,0 +1,15 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no" ?>
+<Pipeline>
+
+  <Entry DisplayName="Run Python Operation" Enabled="1" OperationId="35" OperationName="Python">
+    <ParamList name="" version="1">
+      <Param name="Script" value="C:/Users/Public/Documents/Vicon/Python/moca_pop/moca_pop/scripts/unassign_rb_markers/unassign_rb_markers.py"/>
+      <Param name="ScriptArgs" value="-v -s -l -f --residual_type calib --scoring_name foot --segments_only --max_removals_per_frame 5"/>
+      <Param name="PythonCommand" value="python.exe"/>
+      <Param name="PythonPreScript" value="C:/Users/Public/Documents/Vicon/Python/moca_pop/.venv/Scripts/activate.bat"/>
+      <Param name="LaunchPython" value="false"/>
+      <Param name="UseNexusPython" value="false"/>
+    </ParamList>
+  </Entry>
+
+</Pipeline>
