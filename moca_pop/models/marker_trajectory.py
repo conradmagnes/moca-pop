@@ -53,5 +53,8 @@ class MarkerTrajectory:
         return 100 * sum(self.exists) / len(self.exists)
 
     def get_num_gaps(self) -> int:
-        lead, _ = plot_utils.get_binary_signal_edges(self.exists)
-        return len(lead) - 1
+        try:
+            lead, _ = plot_utils.get_binary_signal_edges(self.exists)
+            return len(lead) - 1
+        except ValueError:
+            return 0
