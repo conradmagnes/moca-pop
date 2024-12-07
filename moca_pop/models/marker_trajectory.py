@@ -32,11 +32,14 @@ class MarkerTrajectory:
     exists: list[bool]
 
     def generate_node(self, marker, frame: int) -> Node:
-        return Node(
-            marker=marker,
-            position=np.array([self.x[frame], self.y[frame], self.z[frame]]),
-            exists=self.exists[frame],
-        )
+        try:
+            return Node(
+                marker=marker,
+                position=np.array([self.x[frame], self.y[frame], self.z[frame]]),
+                exists=self.exists[frame],
+            )
+        except IndexError:
+            return Node(marker=marker, position=np.zeros(3), exists=False)
 
     def get_frame(self, frame: int) -> MarkerTrajectoryAtFrame:
         if frame < 0 or frame >= len(self.x):
