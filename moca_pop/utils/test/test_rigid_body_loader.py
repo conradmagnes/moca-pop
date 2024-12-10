@@ -14,13 +14,15 @@ import moca_pop.utils.vsk_parser as vsk_parser
 # DATASET_NAME = "shoe_stepping"
 # TRIAL_FN = "trial01.c3d"
 # SUBJECT_NAME = "subject"
+# RB_NAME = "Foot"
 
 DATASET_NAME = "foot_drop"
 TRIAL_FN = "tpose.c3d"
 SUBJECT_NAME = "subject"
-RB_NAME = "fai_wholefoot"
+# RB_NAME = "fai_wholefoot"
+RB_NAME = "rearfoot"
 IGNORE_SYMMETRY = False
-CUSTOM = True
+CUSTOM = False
 
 DATASET_DIR = os.path.join(directory.DATASET_DIR, DATASET_NAME)
 PLOT_DIR = os.path.join(directory.UTILS_DIR, "test", "plts")

@@ -96,19 +96,30 @@ def get_rigid_bodies_from_vsk(
     @param vsk_fp Path to VSK file.
     """
 
-    model, bodies, parameters, _, _ = vsk_parser.parse_vsk(vsk_fp)
+    model, bodies, parameters, markers, _ = vsk_parser.parse_vsk(vsk_fp)
+
+    msides, asym_markers, seps = [], [], []
+    if not ignore_symmetry:
+        for m in markers:
+            try:
+                side, asym_m, sep = regex.parse_symmetrical_component(m)
+            except ValueError:
+                continue
+            msides.append(side)
+            asym_markers.append(asym_m)
+            seps.append(sep)
 
     markers_positions = vsk_parser.parse_marker_positions_by_segment(parameters)
 
     rigid_bodies: dict[str, RigidBody] = {}
     for body in bodies:
         asym_body_name = body
-        side = None
-        if not ignore_symmetry:
-            try:
-                side, asym_body_name, sep = regex.parse_symmetrical_component(body)
-            except ValueError:
-                LOGGER.warning(f"Body {body} is not a symmetrical component.")
+        body_side = None
+
+        try:
+            body_side, asym_body_name, sep = regex.parse_symmetrical_component(body)
+        except ValueError:
+            LOGGER.warning(f"Body {body} is not a symmetrical component.")
 
         if exclude is not None and (asym_body_name in exclude or body in exclude):
             continue
@@ -131,24 +142,44 @@ def get_rigid_bodies_from_vsk(
             }
             formated_marker_pos = {}
             if numeric_marker_pos:
-                if not ignore_symmetry:
-                    asym_n_marker_mapping = {}
-                    for nm in numeric_marker_pos:
-                        try:
-                            side, asym_m, sep = regex.parse_symmetrical_component(nm)
-                            asym_n_marker_mapping[asym_m] = f"{side}{sep}{asym_m}"
-                        except ValueError:
-                            asym_m = nm
-                            continue
-                    body_template.remap_markers(asym_n_marker_mapping)
                 formated_marker_pos = body_template.convert_vsk_marker_positions(
                     numeric_marker_pos
                 )
 
+                if not ignore_symmetry:
+                    asym_n_marker_mapping = {}
+                    for nm in formated_marker_pos:
+                        if nm not in asym_markers:
+                            continue
+                        idecies = [i for i, m in enumerate(asym_markers) if m == nm]
+                        side_match = False
+                        for idx in idecies:
+                            if msides[idx] == body_side:
+                                side_match = True
+                                break
+
+                        if not side_match:
+                            continue
+                        asym_n_marker_mapping[nm] = f"{msides[idx]}{seps[idx]}{nm}"
+
+                    body_template.remap_markers(asym_n_marker_mapping)
+                    formated_marker_pos = body_template.convert_vsk_marker_positions(
+                        numeric_marker_pos
+                    )
+
             nonumeric_marker_pos = {
                 m: v for m, v in markers_positions[body].items() if not m.isnumeric()
             }
-            if not ignore_symmetry:
+            if ignore_symmetry:
+                sym_keys = list(nonumeric_marker_pos.keys())
+                for nnm in sym_keys:
+                    try:
+                        side, asym_m, sep = regex.parse_symmetrical_component(nnm)
+                        if side == body_side:
+                            nonumeric_marker_pos[asym_m] = nonumeric_marker_pos.pop(nnm)
+                    except ValueError:
+                        continue
+            else:
                 asym_nn_marker_mapping = {}
                 for nnm in nonumeric_marker_pos:
                     try:
