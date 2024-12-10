@@ -75,21 +75,16 @@ def validate_offline_paths(
     return project_dir, trial_fp, vsk_fp, subject_name
 
 
-def validate_online_paths(vicon, subject_name: str = None) -> tuple:
-    """!Validate online mode arguments.
+def validate_online_subject_name(vicon, subject_name: str = None) -> str:
+    """!Checks to make sure subject is preset and active in Nexus.
 
-    Checks loaded trial and subject names, and vsk file.
+    If no subject name is provided, will search for a match in the available templates.
 
     @param vicon ViconNexus instance.
-    @param subject_name Subject name. If not provided, will search for match in available templates.
-    @return tuple of project_dir, trial_fp, vsk_fp, subject_name
-    """
-    project_dir, trial_name = vicon.GetTrialName()
-    if not trial_name:
-        LOGGER.error("Load a trial in Nexus before running 'online' mode.")
-        exit(-1)
+    @param subject_name Subject name.
 
-    trial_fp = os.path.join(project_dir, f"{trial_name}.c3d")
+    @return subject_name
+    """
 
     subject_names, subject_templates, subject_statuses = vicon.GetSubjectInfo()
 
@@ -118,6 +113,32 @@ def validate_online_paths(vicon, subject_name: str = None) -> tuple:
     elif subject_name not in subject_names:
         LOGGER.error(f"Subject name '{subject_name}' not found in Nexus. Exiting.")
         exit(-1)
+    else:
+        subject_status = subject_statuses[subject_names.index(subject_name)]
+        if not subject_status:
+            LOGGER.info(f"Subject '{subject_name}' is not active. Setting to active.")
+            vicon.SetSubjectActive(subject_name, True)
+
+    return subject_name
+
+
+def validate_online_paths(vicon, subject_name: str = None) -> tuple:
+    """!Validate online mode arguments.
+
+    Checks loaded trial and subject names, and vsk file.
+
+    @param vicon ViconNexus instance.
+    @param subject_name Subject name. If not provided, will search for match in available templates.
+    @return tuple of project_dir, trial_fp, vsk_fp, subject_name
+    """
+    project_dir, trial_name = vicon.GetTrialName()
+    if not trial_name:
+        LOGGER.error("Load a trial in Nexus before running 'online' mode.")
+        exit(-1)
+
+    trial_fp = os.path.join(project_dir, f"{trial_name}.c3d")
+
+    subject_name = validate_online_subject_name(vicon, subject_name)
 
     vsk_fp = os.path.join(project_dir, f"{subject_name}.vsk")
     if not os.path.isfile(vsk_fp):

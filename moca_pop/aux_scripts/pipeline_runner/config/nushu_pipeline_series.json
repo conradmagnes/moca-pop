@@ -95,7 +95,7 @@
             ],
             "break_on_skip": true,
             "break_on_fail": true,
-            "propogate_fail": true
+            "propogate_fail": false
         },
         {
             "type": "Pipeline",

@@ -1,7 +1,7 @@
 <?xml version="1.1" encoding="UTF-8" standalone="no" ?>
 <Pipeline>
 
-  <Entry DisplayName="Reconstruct" Enabled="1" OperationId="8" OperationName="ComputeRecons">
+  <Entry DisplayName="Reconstruct" Enabled="1" OperationId="491" OperationName="ComputeRecons">
     <ParamList name="">
       <Param macro="SELECTED_START_FRAME" name="START_FRAME"/>
       <Param macro="SELECTED_END_FRAME" name="LAST_FRAME"/>
@@ -50,7 +50,7 @@
     </ParamList>
   </Entry>
 
-  <Entry DisplayName="Label" Enabled="1" OperationId="9" OperationName="ComputeLabels">
+  <Entry DisplayName="Label" Enabled="1" OperationId="492" OperationName="ComputeLabels">
     <ParamList name="">
       <Param macro="FIRST_FRAME" name="START_FRAME"/>
       <Param macro="END_FRAME" name="LAST_FRAME"/>
@@ -59,8 +59,8 @@
       <Param name="Labeller.UseRobustBooting" value="false"/>
       <Param name="BootingOutOfRangeBehaviour" value="FreezeAndUnlabelDownTheChain"/>
       <Param name="Labeller.RigidBodiesMinMatchCount" value="4"/>
-      <Param name="EntranceThreshold" value="0.84999999999999998"/>
-      <Param name="ExitThreshold" value="0.59999999999999998"/>
+      <Param name="EntranceThreshold" value="0.75"/>
+      <Param name="ExitThreshold" value="0.40000000000000002"/>
       <Param name="BootingQualityHeuristic" value="0"/>
       <Param name="BootingVersusTrackingHeuristic" value="0"/>
       <Param name="TrackingQualityHeuristic" value="0"/>
