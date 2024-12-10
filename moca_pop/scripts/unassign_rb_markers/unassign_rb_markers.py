@@ -37,8 +37,8 @@
     ------
     python unassign_rb_markers.py [-h] [-v] [-l] [-c] [-f] [-p] [-s] [-i] [-off] [-out {json,txt}] [-res {calib,prior}] [-pn PROJECT_NAME] [-tn TRIAL_NAME] [-sn SUBJECT_NAME]
                               [--scoring_name SCORING_NAME] [--include_rbs INCLUDE_RBS] [--exclude_rbs EXCLUDE_RBS] [--custom_rbs CUSTOM_RBS] [--segments_only]
-                              [--max_removals_per_frame MAX_REMOVALS_PER_FRAME] [--start_frame START_FRAME] [--end_frame END_FRAME] [--plot_residuals] [--plot_scores] [--plot_removals]
-                              [--keep_console_open]
+                              [--max_removals_per_frame MAX_REMOVALS_PER_FRAME] [--static_frame STATIC_FRAME] [--start_frame START_FRAME] [--end_frame END_FRAME] [--plot_residuals] [--plot_scores]  
+                              [--plot_removals] [--keep_console_open]
 
     Examples:
         python unassign_rb_markers.py -v -l -i -off -res "calib" -pn "shoe_stepping" -tn "trial01" -sn "subject" --scoring_name "foot" --segments_only --plot_removals
@@ -651,6 +651,12 @@ def configure_parser():
         default=3,
         help="Maximum number of markers to remove per frame, per rigid body.",
     )
+    parser.add_argument(
+        "--static_frame",
+        type=int,
+        default=0,
+        help="Static frame to use for calibrating rigid bodies (required for custom bodies).",
+    )
 
     parser.add_argument(
         "--start_frame",
@@ -793,6 +799,37 @@ def main():
     )
     frames = list(range(start - trial_frames[0], end - trial_frames[0] + 1))
 
+    static_frame = args.static_frame
+    if static_frame == 0 and args.custom_rbs:
+        LOGGER.warning(
+            "Static frame not provided. Using first frame but this may yield inaccurate results."
+        )
+        static_frame = trial_frames[0]
+
+    if static_frame > 0:
+        if static_frame not in trial_frames:
+            LOGGER.error(f"Static frame {static_frame} not in trial frames.")
+            exit(-1)
+
+        LOGGER.info(f"Using static frame {static_frame} for calibration.")
+        sf = trial_frames.index(static_frame)
+        LOGGER.info(f"Trajectory index of static frame: {sf}")
+        for rb in calibrated_rigid_bodies.values():
+            nodes = [
+                traj.generate_node(m, sf) for m, traj in marker_trajectories.items()
+            ]
+            missing_nodes = [
+                n for n in nodes if not n.exists and n.marker in rb.get_markers()
+            ]
+            if missing_nodes:
+                LOGGER.error(
+                    f"Markers missing for {rb.name} in static frame: {missing_nodes}"
+                )
+                exit(-1)
+            rb.update_node_positions(
+                nodes, recompute_lengths=True, recompute_angles=(not segments_only)
+            )
+
     ## Optional Plot of Residuals
     if args.plot_residuals:
         agg_params = copy.deepcopy(scoring_params)
@@ -913,6 +950,8 @@ def main():
                     isa_args.append("-off")
                 if args.verbose:
                     isa_args.append("-v")
+                if static_frame > 0 or args.custom_rbs:
+                    isa_args.extend(["--static_frame", str(static_frame)])
                 if args.custom_rbs:
                     body_choices = [f"[0] Exit"]
                     body_choices.extend(
@@ -932,8 +971,7 @@ def main():
                         loop_inspector = False
                         continue
 
-                    isa_args.append("--custom")
-                    isa_args.append("--rb_name")
+                    isa_args.extend(["--custom", "--ignore_symmetry", "--rb_name"])
                     isa_args.append(list(calibrated_rigid_bodies.keys())[ui_body - 1])
 
                 LOGGER.info(

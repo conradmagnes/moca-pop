@@ -1022,7 +1022,7 @@ def load_calibrated_body(
     If no rigid body name is provided, the user is prompted to select one.
 
     @param vsk_fp Path to the VSK file.
-    @param ignore_symmetry Ignore symmetry labels in the Rigid Body.
+    @param ignore_symmetry Ignore symmetry labels in the Rigid Body, unless custom.
 
     @return RigidBody object.
     """
@@ -1064,10 +1064,12 @@ def load_active_body(
     ignore_symmetry: bool,
     rb_name: str,
     frame: int = 0,
+    static_frame: int = 0,
     offline: bool = False,
     trial_fp: str = None,
     subject_name: str = "",
     vicon=None,
+    custom: bool = False,
 ):
     """!Load the active body from the trial file.
     If no trial file is provided, the active body is the same as the calibrated body.
@@ -1077,13 +1079,17 @@ def load_active_body(
     @param ignore_symmetry Ignore symmetry labels in the Rigid Body.
     @param rb_name Name of the rigid body to analyze.
     @param frame Frame to analyze.
+    @param static_frame Frame to use for calibration.
     @param offline Whether to process offline.
     @param trial_fp Path to the trial file (offline mode).
     @param subject_name Name of the subject (online mode).
     @param vicon ViconNexus instance (online mode).
+    @param custom Use if rigid body is 'custom', i.e. not defined by one VSK segment.
     """
+    match = False
     if not trial_fp:
-        return copy.deepcopy(calibrated_body)
+        LOGGER.info("No trial file provided. Active will match calibrated body.")
+        match = True
 
     if offline:
         c3d_reader = c3d_parser.get_reader(trial_fp)
@@ -1102,7 +1108,9 @@ def load_active_body(
         LOGGER.info(f"Using last frame in trial: {frames[-1]}")
         frame = len(frames) - 1
 
-    if ignore_symmetry:
+    if (
+        ignore_symmetry and not custom
+    ):  # custom always ignores symmetry (see load_calibrated_body)
         rb_side, _, _ = regex.parse_symmetrical_component(rb_name)
         sym_trajectories = {}
         for m, t in marker_trajectories.items():
@@ -1113,6 +1121,29 @@ def load_active_body(
             except ValueError:
                 continue
         marker_trajectories = sym_trajectories
+
+    if static_frame <= 0 and custom:
+        LOGGER.warning(
+            "Static frame not provided. Using first frame but this may yield inaccurate results."
+        )
+        static_frame = frames[0]
+
+    if static_frame > 0:
+        if static_frame not in frames:
+            LOGGER.error(f"Static frame {static_frame} not in trial frames.")
+            exit(-1)
+
+        LOGGER.info(f"Using static frame {static_frame} for calibration.")
+        nodes = [
+            traj.generate_node(m, static_frame - 1)
+            for m, traj in marker_trajectories.items()
+        ]
+        calibrated_body.update_node_positions(
+            nodes, recompute_lengths=True, recompute_angles=True
+        )
+
+    if match:
+        return copy.deepcopy(calibrated_body)
 
     active_nodes = [
         traj.generate_node(m, frame) for m, traj in marker_trajectories.items()
@@ -1202,6 +1233,13 @@ def configure_parser():
         help="Frame to analyze (if trial provided).",
     )
     parser.add_argument(
+        "--static_frame",
+        type=int,
+        default=0,
+        help="Frame to use for calibration (should be set if using custom).",
+    )
+
+    parser.add_argument(
         "--custom",
         action="store_true",
         help="Use if rigid body is 'custom', i.e. not defined by one VSK segment.",
@@ -1256,15 +1294,18 @@ def main():
     calibrated_body = load_calibrated_body(
         vsk_fp, ignore_symmetry, rb_name, args.custom
     )
+
     active_body = load_active_body(
         calibrated_body,
         ignore_symmetry,
         calibrated_body.name,
         frame,
+        args.static_frame,
         args.offline,
         trial_fp,
         subject_name,
         vicon,
+        custom=args.custom,
     )
 
     scoring_params = load_scoring_parameters(args.scoring_name)
@@ -1286,20 +1327,31 @@ def run_as_subprocess(args):
 
 
 def test_main_with_args():
+    # sys.argv = [
+    #     "--offline",
+    #     "-pn",
+    #     "shoe_stepping",
+    #     "-sn",
+    #     "subject",
+    #     "--rb_name",
+    #     "Right_Foot",
+    #     "-tn",
+    #     "trial01",
+    #     "--ignore_symmetry",
+    #     "--frame",
+    #     "0",
+    #     "-v",
+    # ]
     sys.argv = [
-        "--offline",
-        "-pn",
-        "shoe_stepping",
-        "-sn",
-        "subject",
+        sys.argv[0],
         "--rb_name",
-        "Right_Foot",
-        "-tn",
-        "trial01",
+        "fai_wholefoot_R",
+        "--custom",
         "--ignore_symmetry",
+        "--static_frame",
+        "819",
         "--frame",
-        "0",
-        "-v",
+        "737",
     ]
     main()
 
