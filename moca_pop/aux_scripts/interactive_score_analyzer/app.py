@@ -16,6 +16,9 @@
     Users can import and export scoring parameters directly from the application, or specify the path / name
     of a scoring parameter file when calling the script.
 
+    **NOTE**: --ignore_symmetry flag is used to remove symmetry from marker names. As a rule of thumb, if 
+    specifying a rigid body with a symmetric component (i.e. left, right), do not use the --ignore_symmetry flag.
+
     Run `python interactive_score_analyzer.py -h` for more information on how to use this script.
 
     Usage:
@@ -1092,6 +1095,9 @@ def load_active_body(
         match = True
 
     if offline:
+        if match:
+            return copy.deepcopy(calibrated_body)
+
         c3d_reader = c3d_parser.get_reader(trial_fp)
         marker_trajectories = c3d_parser.get_marker_trajectories(c3d_reader)
         frames = c3d_parser.get_frames(c3d_reader)
@@ -1344,18 +1350,23 @@ def test_main_with_args():
     # ]
     sys.argv = [
         sys.argv[0],
+        "--offline",
+        "-pn",
+        "foot_drop",
+        "-sn",
+        "subject",
+        # "--custom",
+        # "--ignore_symmetry",
+        # "--static_frame",
+        # "819",
         "--rb_name",
-        "fai_wholefoot_R",
-        "--custom",
-        "--ignore_symmetry",
-        "--static_frame",
-        "819",
+        "rearfoot",
         "--frame",
-        "737",
+        "20",
     ]
     main()
 
 
 if __name__ == "__main__":
-    # test_main_with_args()
-    main()
+    test_main_with_args()
+    # main()
