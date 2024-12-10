@@ -18,8 +18,9 @@ import moca_pop.utils.vsk_parser as vsk_parser
 DATASET_NAME = "foot_drop"
 TRIAL_FN = "tpose.c3d"
 SUBJECT_NAME = "subject"
-RB_NAME = "rearfoot"
+RB_NAME = "fai_wholefoot"
 IGNORE_SYMMETRY = False
+CUSTOM = True
 
 DATASET_DIR = os.path.join(directory.DATASET_DIR, DATASET_NAME)
 PLOT_DIR = os.path.join(directory.UTILS_DIR, "test", "plts")
@@ -31,9 +32,19 @@ vsk_fp = os.path.join(DATASET_DIR, f"{SUBJECT_NAME}.vsk")
 
 model, bodies, parameters, marker_names, sticks = vsk_parser.parse_vsk(vsk_fp)
 
-rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(
-    vsk_fp, ignore_symmetry=IGNORE_SYMMETRY
-)
+if CUSTOM:
+    rb_names = (
+        [RB_NAME + f"_{side}" for side in ["L", "R"]]
+        if not IGNORE_SYMMETRY
+        else [RB_NAME]
+    )
+    rigid_bodies = rigid_body_loader.get_custom_rigid_bodies_from_vsk(
+        vsk_fp, rb_names, IGNORE_SYMMETRY
+    )
+else:
+    rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(
+        vsk_fp, ignore_symmetry=IGNORE_SYMMETRY
+    )
 rigid_bodies = {k: v for k, v in rigid_bodies.items() if RB_NAME in k}
 
 plane = "xy"

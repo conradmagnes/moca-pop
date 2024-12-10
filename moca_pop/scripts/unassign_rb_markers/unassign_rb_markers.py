@@ -35,10 +35,10 @@
     
     Usage:
     ------
-    python unassign_rb_markers.py [-h] [-v] [-l] [-c] [-f] [-p] [-s] [-i] [-off] [-out {json,txt}] [-res {calib,prior}]
-                              [-pn PROJECT_NAME] [-tn TRIAL_NAME] [-sn SUBJECT_NAME] [--scoring_name SCORING_NAME]
-                              [--segments_only] [--max_removals_per_frame MAX_REMOVALS_PER_FRAME] [--start_frame START_FRAME]       
-                              [--end_frame END_FRAME] [--plot_residuals] [--plot_scores] [--plot_removals] [--keep_console_open]
+    python unassign_rb_markers.py [-h] [-v] [-l] [-c] [-f] [-p] [-s] [-i] [-off] [-out {json,txt}] [-res {calib,prior}] [-pn PROJECT_NAME] [-tn TRIAL_NAME] [-sn SUBJECT_NAME]
+                              [--scoring_name SCORING_NAME] [--include_rbs INCLUDE_RBS] [--exclude_rbs EXCLUDE_RBS] [--custom_rbs CUSTOM_RBS] [--segments_only]
+                              [--max_removals_per_frame MAX_REMOVALS_PER_FRAME] [--start_frame START_FRAME] [--end_frame END_FRAME] [--plot_residuals] [--plot_scores] [--plot_removals]
+                              [--keep_console_open]
 
     Examples:
         python unassign_rb_markers.py -v -l -i -off -res "calib" -pn "shoe_stepping" -tn "trial01" -sn "subject" --scoring_name "foot" --segments_only --plot_removals
@@ -389,17 +389,19 @@ def plot_removals(
         binaries = np.array(removal_binaries[rb_name])
 
         for j, marker in enumerate(rb.get_markers()):
+            plt_ax = ax[j, i] if ncols > 1 else ax[j]
+
             arr = binaries[:, j]
             l, g = plot_utils.get_binary_signal_edges(arr)
             if start_frame > 0:
                 l = [x + start_frame for x in l]
                 g = [x + start_frame for x in g]
-            plot_utils.draw_shaded_regions(ax[j, i], l, g, color="blue", alpha=0.8)
+            plot_utils.draw_shaded_regions(plt_ax, l, g, color="blue", alpha=0.8)
 
-            ax[j, i].set_xlim(start_frame, start_frame + len(arr))
-            ax[j, i].set_title(marker)
+            plt_ax.set_xlim(start_frame, start_frame + len(arr))
+            plt_ax.set_title(marker)
 
-            ax[j, i].set_yticks([])
+            plt_ax.set_yticks([])
 
     fig.tight_layout()
 
@@ -618,6 +620,24 @@ def configure_parser():
         default="default",
         help="Name of the scoring configuration to use. (saved to moca_pop/scripts/unassign_rb_markers/scoring)",
     )
+    parser.add_argument(
+        "--include_rbs",
+        type=str,
+        default="",
+        help="Comma-separated list of rigid bodies to include in processing. (i.e. 'rb1,rb2').",
+    )
+    parser.add_argument(
+        "--exclude_rbs",
+        type=str,
+        default="",
+        help="Comma-separated list of rigid bodies to exclude from processing. (i.e. 'rb1,rb2').",
+    )
+    parser.add_argument(
+        "--custom_rbs",
+        type=str,
+        default="",
+        help="Comma-separated list of custom rigid bodies to process (i.e. bodies that span multiple VSK segments).",
+    )
 
     parser.add_argument(
         "--segments_only",
@@ -685,7 +705,7 @@ def main():
     parser = configure_parser()
     args = parser.parse_args()
 
-    console = (args.console or args.inspect)
+    console = args.console or args.inspect
 
     if console and not args._new_console_opened:
         dist_utils.run_in_new_console(
@@ -742,7 +762,23 @@ def main():
 
     LOGGER.debug(f"Scoring Params: {scoring_params.model_dump_json()}")
 
-    calibrated_rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(vsk_fp)
+    if args.custom_rbs:
+        rbs = args.custom_rbs.split(",")
+        LOGGER.debug(f"Loading custom rigid bodies: {rbs}")
+        calibrated_rigid_bodies = rigid_body_loader.get_custom_rigid_bodies_from_vsk(
+            vsk_fp, rbs
+        )
+        LOGGER.debug(f"Fetched custom rigid bodies: {calibrated_rigid_bodies.keys()}")
+    else:
+        include = args.include_rbs.split(",") if args.include_rbs else None
+        exclude = args.exclude_rbs.split(",") if args.exclude_rbs else None
+        calibrated_rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(
+            vsk_fp, include=include, exclude=exclude
+        )
+
+    if not calibrated_rigid_bodies:
+        LOGGER.error("No rigid bodies found in VSK. Exiting.")
+        exit(-1)
 
     if offline:
         c3d_reader = c3d_parser.get_reader(trial_fp)
@@ -877,6 +913,28 @@ def main():
                     isa_args.append("-off")
                 if args.verbose:
                     isa_args.append("-v")
+                if args.custom_rbs:
+                    body_choices = [f"[0] Exit"]
+                    body_choices.extend(
+                        [
+                            f"[{i+1}] {rb}"
+                            for i, rb in enumerate(calibrated_rigid_bodies.keys())
+                        ]
+                    )
+                    ui_body = hmi.get_user_input(
+                        "\n".join(
+                            ["Enter the rigid body to inspect:", *body_choices, "\n"]
+                        ),
+                        exit_on_quit=True,
+                        choices=body_choices,
+                    )
+                    if ui_body == 0:
+                        loop_inspector = False
+                        continue
+
+                    isa_args.append("--custom")
+                    isa_args.append("--rb_name")
+                    isa_args.append(list(calibrated_rigid_bodies.keys())[ui_body - 1])
 
                 LOGGER.info(
                     "Opening Interactive Score Analyzer as a subprocess. This may take a moement to load"

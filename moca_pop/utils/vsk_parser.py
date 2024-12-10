@@ -106,6 +106,39 @@ def parse_marker_positions_by_segment(
     return marker_positions
 
 
+def parse_marker_positions(
+    parameters: dict,
+) -> dict:
+    """!Parse Marker Positions from Segment Parameters
+
+    Segment parameters are expected to be in the format:
+    - <segment_name>_<marker_name>_<axis>
+
+    @param parameters dict of segment parameters
+
+    @return dict of marker positions in format {marker_name: (x, y, z)
+    """
+
+    marker_positions = {}
+    for param, value in parameters.items():
+        match = re.match(SEGMENT_PARAM_MARKER_RGX, param)
+        if not match:
+            continue
+        marker_name = match.group("marker_name")
+        axis = match.group("axis")
+
+        if marker_name not in marker_positions:
+            marker_positions[marker_name] = {}
+
+        marker_positions[marker_name][axis] = value
+        continue
+
+    for marker, pos_dict in marker_positions.items():
+        marker_positions[marker] = tuple(pos_dict[axis] for axis in "xyz")
+
+    return marker_positions
+
+
 def format_marker_positions(
     marker_positions: dict, marker_mapping: Union[dict, list]
 ) -> dict:

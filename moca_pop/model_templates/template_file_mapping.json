@@ -1,16 +1,17 @@
 {
-    "NUSHU_shoe_10_wholefoot": {
-        "rigid_body": {
-            "Foot": "foot.json",
-            "Foot_bk": "foot_bk.json"
-        }
-    },
     "FAI_MoCap_DB_torso": {
         "rigid_body": {
+            "fai_wholefoot": "fai_wholefoot.json",
             "forefoot": "forefoot.json",
             "forefoot_left": "forefoot_left.json",
             "rearfoot": "rearfoot.json",
             "rearfoot_left": "rearfoot_left.json"
+        }
+    },
+    "NUSHU_shoe_10_wholefoot": {
+        "rigid_body": {
+            "Foot": "foot.json",
+            "Foot_bk": "foot_bk.json"
         }
     }
 }
