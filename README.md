@@ -105,6 +105,11 @@ is only used for visualization purposes.
 The purpose of the RigidBody model is to enforce stricter constraints on marker labeling. By assuming a collection of markers are placed on a
 body that is *more or less* rigid, we can calibrate a RigidBody model and use it to identify mislabeled markers in a trial.
 
+Currently, a rigid body should be defined using only the markers in a VSK segment. An expansion to this could be a 'custom' rigid body, where
+markers from different segments are used to define a rigid body. This has been partially implemented in the `unassign_rb_markers.py` script.
+To finialize this feature, we would need to include a flag for defining a 'static' frame, as joints between segments in the VSK do not
+enforce a fixed distance between markers (resulting in rigid bodies overlapping near 0,0,0).
+
 ## Main Scripts
 
 ### 1. `swap_rb_markers.py`
