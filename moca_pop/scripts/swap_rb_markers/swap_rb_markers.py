@@ -560,7 +560,9 @@ def main():
     parser = configure_parser()
     args = parser.parse_args()
 
-    if args.console and not args._new_console_opened:
+    console = args.console or args.inspect
+
+    if console and not args._new_console_opened:
         dist_utils.run_in_new_console(
             close_console_on_exit=(not args.keep_console_open)
         )

@@ -62,36 +62,42 @@ class RigidBodyTemplate(BaseTemplate):
 
         return self
 
-    def add_symmetry_prefix(self, side: str):
-        """!Add a symmetry prefix to the markers and segments in the template."""
-        self.markers = [f"{side}_{marker}" for marker in self.markers]
-
-        sided_segments = []
-        for segment in self.segments:
-            seg_parts = segment.split("-")
-            seg_parts = [f"{side}_{part}" for part in seg_parts]
-            segment = "-".join(seg_parts)
-            sided_segments.append(segment)
-        self.segments = sided_segments
+    def remap_markers(self, marker_mapping: dict[str, str]):
+        """!Map markers to new names. Update segments and tolerances accordingly."""
+        self.markers = [marker_mapping.get(marker, marker) for marker in self.markers]
 
         for idx, marker in self.param_index_marker_mapping.items():
-            self.param_index_marker_mapping[idx] = f"{side}_{marker}"
+            self.param_index_marker_mapping[idx] = marker_mapping.get(marker, marker)
 
-        seg_tolerance = {}
+        remapped_segments = []
+        for segment in self.segments:
+            seg_parts = segment.split("-")
+            seg_parts = [marker_mapping.get(part, part) for part in seg_parts]
+            segment = "-".join(seg_parts)
+            remapped_segments.append(segment)
+
+        self.segments = remapped_segments
+
+        remapped_tolerances = {}
         for seg_name, seg_tol in self.tolerances["segments"].items():
-            seg_name_parts = seg_name.split("-")
-            seg_name_parts = [f"{side}_{part}" for part in seg_name_parts]
-            sided_seg_name = "-".join(seg_name_parts)
-            seg_tolerance[sided_seg_name] = seg_tol
+            seg_parts = seg_name.split("-")
+            seg_parts = [marker_mapping.get(part, part) for part in seg_parts]
+            remapped_seg_name = "-".join(seg_parts)
+            remapped_tolerances[remapped_seg_name] = seg_tol
 
-        self.tolerances["segments"] = seg_tolerance
+        self.tolerances["segments"] = remapped_tolerances
 
-        joint_tolerance = {}
+        remapped_joint_tolerances = {}
         for joint_name, joint_tol in self.tolerances["joints"].items():
-            sided_joint_name = f"{side}_{joint_name}"
-            joint_tolerance[sided_joint_name] = joint_tol
+            remapped_joint_name = marker_mapping.get(joint_name, joint_name)
+            remapped_joint_tolerances[remapped_joint_name] = joint_tol
 
-        self.tolerances["joints"] = joint_tolerance
+        self.tolerances["joints"] = remapped_joint_tolerances
+
+    def add_symmetry_prefix(self, side: str, sep: str = "_"):
+        """!Add a symmetry prefix to the markers segments, and joints in the template."""
+        marker_mapping = {marker: f"{side}{sep}{marker}" for marker in self.markers}
+        self.remap_markers(marker_mapping)
 
     def convert_vsk_marker_positions(self, marker_positions: dict) -> dict:
         """!Convert marker positions from VSK format to template format.

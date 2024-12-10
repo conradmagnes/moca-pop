@@ -1,0 +1,48 @@
+{
+    "name": "forefoot_left",
+    "parent_models": [
+        "FAI_MoCap_DB_torso"
+    ],
+    "markers": [
+        "LTFB",
+        "LTFM",
+        "LTTO",
+        "LTVM",
+        "LTVB"
+    ],
+    "param_index_marker_mapping": {
+    },
+    "segments": [
+        "LTFB-LTFM",
+        "LTFB-LTTO",
+        "LTFB-LTVM",
+        "LTFB-LTVB",
+        "LTFM-LTTO",
+        "LTFM-LTVM",
+        "LTFM-LTVB",
+        "LTTO-LTVM",
+        "LTTO-LTVB",
+        "LTVM-LTVB"
+    ],
+    "tolerances": {
+        "segments": {
+            "LTFB-LTFM": 0.05,
+            "LTFB-LTTO": 0.05,
+            "LTFB-LTVM": 0.05,
+            "LTFB-LTVB": 0.05,
+            "LTFM-LTTO": 0.05,
+            "LTFM-LTVM": 0.05,
+            "LTFM-LTVB": 0.05,
+            "LTTO-LTVM": 0.05,
+            "LTTO-LTVB": 0.05,
+            "LTVM-LTVB": 0.05
+        },
+        "joints": {
+            "LTFB": 5,
+            "LTFM": 5,
+            "LTTO": 5,
+            "LTVM": 5,
+            "LTVB": 5
+        }
+    }
+}

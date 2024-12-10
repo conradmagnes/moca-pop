@@ -4,11 +4,12 @@ from moca_pop.config.regex import (
     MARKER_RGX,
     SEGMENT_RGX,
     JOINT_RGX,
-    SEGMENT_PARAM_MARKER_RGX,
+    SEGMENT_PARAM_SEGMENT_RGX,
     is_marker_string_valid,
     is_segment_string_valid,
     is_joint_string_valid,
     parse_symmetrical_component,
+    same_side,
 )
 
 
@@ -52,34 +53,44 @@ class TestRigidBodyRegex(unittest.TestCase):
         # Invalid characters
         self.assertFalse(is_joint_string_valid("Marker1-Marker2-Marker3,"))
 
-    def test_segment_param_marker_regex(self):
+    def test_segment_param_segment_regex(self):
         # Valid VSK segment parameters
-        self.assertTrue(re.match(SEGMENT_PARAM_MARKER_RGX, "Segment_Segment1_x"))
-        self.assertTrue(re.match(SEGMENT_PARAM_MARKER_RGX, "Arm_Arm1_y"))
-        self.assertTrue(re.match(SEGMENT_PARAM_MARKER_RGX, "Leg_Leg2_z"))
+        self.assertTrue(re.match(SEGMENT_PARAM_SEGMENT_RGX, "Segment_Segment1_x"))
+        self.assertTrue(re.match(SEGMENT_PARAM_SEGMENT_RGX, "Arm_Arm1_y"))
+        self.assertTrue(re.match(SEGMENT_PARAM_SEGMENT_RGX, "Leg_Leg2_z"))
 
         # Invalid VSK segment parameters
         # Mismatched segment names
-        self.assertFalse(re.match(SEGMENT_PARAM_MARKER_RGX, "Segment1_Segment1_x"))
+        self.assertFalse(re.match(SEGMENT_PARAM_SEGMENT_RGX, "Segment1_Segment1_x"))
         # Missing index and axis
-        self.assertFalse(re.match(SEGMENT_PARAM_MARKER_RGX, "Segment_Segment"))
+        self.assertFalse(re.match(SEGMENT_PARAM_SEGMENT_RGX, "Segment_Segment"))
         # Missing axis
-        self.assertFalse(re.match(SEGMENT_PARAM_MARKER_RGX, "Segment_Segment1"))
+        self.assertFalse(re.match(SEGMENT_PARAM_SEGMENT_RGX, "Segment_Segment1"))
         # Missing axis
-        self.assertFalse(re.match(SEGMENT_PARAM_MARKER_RGX, "Segment1_Segment1_1"))
+        self.assertFalse(re.match(SEGMENT_PARAM_SEGMENT_RGX, "Segment1_Segment1_1"))
         # Invalid axis
-        self.assertFalse(re.match(SEGMENT_PARAM_MARKER_RGX, "Segment_Segment1_1_q"))
+        self.assertFalse(re.match(SEGMENT_PARAM_SEGMENT_RGX, "Segment_Segment1_1_q"))
 
     def test_symmetrical_component(self):
         # Valid symmetrical components
         self.assertEqual(
-            parse_symmetrical_component("Left_Component"), ("Left", "Component")
+            parse_symmetrical_component("Left_Component"), ("Left", "Component", "_")
         )
         self.assertEqual(
-            parse_symmetrical_component("Right_Component"), ("Right", "Component")
+            parse_symmetrical_component("Right_Component"), ("Right", "Component", "_")
         )
-        self.assertEqual(parse_symmetrical_component("R_Component"), ("R", "Component"))
-        self.assertEqual(parse_symmetrical_component("Right_Arm"), ("Right", "Arm"))
+        self.assertEqual(
+            parse_symmetrical_component("R_Component"), ("R", "Component", "_")
+        )
+        self.assertEqual(
+            parse_symmetrical_component("Right_Arm"), ("Right", "Arm", "_")
+        )
+
+        self.assertEqual(
+            parse_symmetrical_component("Component_Left"), ("Left", "Component", "_")
+        )
+
+        self.assertEqual(parse_symmetrical_component("RTMarker"), ("R", "Marker", "T"))
 
         # Invalid symmetrical components
         # Missing side
@@ -91,6 +102,17 @@ class TestRigidBodyRegex(unittest.TestCase):
         # Missing component
         with self.assertRaises(ValueError):
             parse_symmetrical_component("Left_")
+        # Invalid separator
+        with self.assertRaises(ValueError):
+            parse_symmetrical_component("Left-Component")
+
+    def test_same_side(self):
+        # Valid same side components
+
+        self.assertTrue(same_side("Left", "Left"))
+        self.assertTrue(same_side("Right", "Right"))
+        self.assertTrue(same_side("L", "left"))
+        self.assertTrue(same_side("Right", "right"))
 
 
 if __name__ == "__main__":
