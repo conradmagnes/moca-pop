@@ -1,0 +1,38 @@
+{
+    "name": "rearfoot_left",
+    "parent_models": [
+        "FAI_MoCap_DB_torso"
+    ],
+    "markers": [
+        "LTLC",
+        "LTHL",
+        "LTHH",
+        "LTMC"
+    ],
+    "param_index_marker_mapping": {
+    },
+    "segments": [
+        "LTLC-LTMC",
+        "LTLC-LTHL",
+        "LTLC-LTHH",
+        "LTMC-LTHL",
+        "LTMC-LTHH",
+        "LTHL-LTHH"
+    ],
+    "tolerances": {
+        "segments": {
+            "LTLC-LTMC": 0.05,
+            "LTLC-LTHL": 0.05,
+            "LTLC-LTHH": 0.05,
+            "LTMC-LTHL": 0.05,
+            "LTMC-LTHH": 0.05,
+            "LTHL-LTHH": 0.05
+        },
+        "joints": {
+            "LTLC": 5,
+            "LTHL": 5,
+            "LTHH": 5,
+            "LTMC": 5
+        }
+    }
+}

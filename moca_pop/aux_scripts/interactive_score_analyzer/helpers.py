@@ -46,7 +46,7 @@ def remove_symmetry_from_scoring(scoring_params: scoringParameters.ScoringParame
     removal_threshold = {}
     for k, v in scoring_params.removal_threshold.items():
         try:
-            _, symm_comp = regex.parse_symmetrical_component(k)
+            _, symm_comp, sep = regex.parse_symmetrical_component(k)
         except ValueError:
             symm_comp = k
         removal_threshold[symm_comp] = v

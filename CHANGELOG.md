@@ -8,6 +8,27 @@ Each entry has to feature the following sections: **Added**, **Changed**, and
 **Removed**.
 If no item is present for a given section, have it say None.
 
+## 2024-12-10
+### Added
+- `foot_drop` example dataset
+- `rearfoot`, `forefoot`, `fai_wholefoot` model templates
+  - `fai_wholefoot` is a composite model of `rearfoot` and `forefoot`. Implementation of this type of rigid body (a 'custom' rigid body) is incomplete.
+
+### Changed
+- enforce open console with '--inspect' to avoid blocking the script
+- expanded regex patterns for parsing VSK files and symmetrical markers / bodies
+
+### Removed
+None
+
+### Changed
+- Updated `batch_runner.py` to optionally include trial names from a ledger, and update the ledger after successful completion.
+- Updated `pipeline_runner.py` to gracefully handle pipeline failures (i.e. errors thrown by vicon.RunPipeline()).
+- log file name format to prepend timestamp (rather than append) by default
+
+### Removed
+None
+
 ## 2024-12-06
 ### Added
 - `print_trial_name.py` - aux script for printing, or optionally writing to file, trial names within a directory. 

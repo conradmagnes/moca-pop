@@ -926,6 +926,7 @@ def validate_online_args(args, vicon):
         )
         if ui == 1:
             LOGGER.error("Exiting.")
+            exit(0)
         trial_fp = None
     else:
         trial_fp = os.path.join(project_dir, f"{trial_name}.c3d")
@@ -1013,7 +1014,9 @@ def load_scoring_parameters(scoring_name: str = None) -> str:
     return scoringParameters.ScoringParameters()
 
 
-def load_calibrated_body(vsk_fp: str, ignore_symmetry: bool, rb_name: str) -> RigidBody:
+def load_calibrated_body(
+    vsk_fp: str, ignore_symmetry: bool, rb_name: str, custom: bool = False
+) -> RigidBody:
     """!Load the rigid body from the VSK file.
 
     If no rigid body name is provided, the user is prompted to select one.
@@ -1023,9 +1026,14 @@ def load_calibrated_body(vsk_fp: str, ignore_symmetry: bool, rb_name: str) -> Ri
 
     @return RigidBody object.
     """
-    calibrated_rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(
-        vsk_fp, ignore_marker_symmetry=ignore_symmetry
-    )
+    if custom:
+        calibrated_rigid_bodies = rigid_body_loader.get_custom_rigid_bodies_from_vsk(
+            vsk_fp, [rb_name], ignore_symmetry=False
+        )
+    else:
+        calibrated_rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(
+            vsk_fp, ignore_symmetry=ignore_symmetry
+        )
     available_rigid_bodies = list(calibrated_rigid_bodies.keys())
     if len(available_rigid_bodies) == 0:
         LOGGER.error("No rigid bodies found in the VSK file. Exiting.")
@@ -1095,12 +1103,12 @@ def load_active_body(
         frame = len(frames) - 1
 
     if ignore_symmetry:
-        rb_side, _ = regex.parse_symmetrical_component(rb_name)
+        rb_side, _, _ = regex.parse_symmetrical_component(rb_name)
         sym_trajectories = {}
         for m, t in marker_trajectories.items():
             try:
-                symm_side, symm_comp = regex.parse_symmetrical_component(m)
-                if symm_side == rb_side:
+                symm_side, symm_comp, _ = regex.parse_symmetrical_component(m)
+                if regex.same_side(symm_side, rb_side):
                     sym_trajectories[symm_comp] = t
             except ValueError:
                 continue
@@ -1193,6 +1201,11 @@ def configure_parser():
         default=0,
         help="Frame to analyze (if trial provided).",
     )
+    parser.add_argument(
+        "--custom",
+        action="store_true",
+        help="Use if rigid body is 'custom', i.e. not defined by one VSK segment.",
+    )
 
     return parser
 
@@ -1225,6 +1238,9 @@ def main():
             exit(-1)
 
         vicon = ViconNexus.ViconNexus()
+        if not vicon.IsConnected():
+            LOGGER.error("Vicon Nexus is not connected. Exiting.")
+            exit(-1)
         project_dir, vsk_fp, subject_name, trial_fp = validate_online_args(args, vicon)
 
     rb_name = args.rb_name
@@ -1237,7 +1253,9 @@ def main():
         desc_str += ", Trial: {}, Frame: {}".format(os.path.basename(trial_fp), frame)
     LOGGER.info(desc_str)
 
-    calibrated_body = load_calibrated_body(vsk_fp, ignore_symmetry, rb_name)
+    calibrated_body = load_calibrated_body(
+        vsk_fp, ignore_symmetry, rb_name, args.custom
+    )
     active_body = load_active_body(
         calibrated_body,
         ignore_symmetry,

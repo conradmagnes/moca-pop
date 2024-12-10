@@ -1,0 +1,48 @@
+{
+    "name": "forefoot",
+    "parent_models": [
+        "FAI_MoCap_DB_torso"
+    ],
+    "markers": [
+        "FB",
+        "FM",
+        "TO",
+        "VM",
+        "VB"
+    ],
+    "param_index_marker_mapping": {
+    },
+    "segments": [
+        "FB-FM",
+        "FB-TO",
+        "FB-VM",
+        "FB-VB",
+        "FM-TO",
+        "FM-VM",
+        "FM-VB",
+        "TO-VM",
+        "TO-VB",
+        "VM-VB"
+    ],
+    "tolerances": {
+        "segments": {
+            "FB-FM": 0.05,
+            "FB-TO": 0.05,
+            "FB-VM": 0.05,
+            "FB-VB": 0.05,
+            "FM-TO": 0.05,
+            "FM-VM": 0.05,
+            "FM-VB": 0.05,
+            "TO-VM": 0.05,
+            "TO-VB": 0.05,
+            "VM-VB": 0.05
+        },
+        "joints": {
+            "FB": 5,
+            "FM": 5,
+            "TO": 5,
+            "VM": 5,
+            "VB": 5
+        }
+    }
+}

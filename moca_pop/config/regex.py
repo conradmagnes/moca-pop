@@ -6,6 +6,13 @@
 import re
 
 """
+Side regex, can be either: ['Right', 'Left', 'right', 'left', 'R', 'L']
+"""
+SIDE_RGX = r"^(Right|Left|right|left|R|L)$"
+LSIDE_RGX = r"^(Left|left|L)$"
+RSIDE_RGX = r"^(Right|right|R)$"
+
+"""
 Marker can contain any character except for: ['-', ',']
 """
 MARKER_RGX = r"^[^-,]+$"
@@ -35,17 +42,27 @@ RIGID_BODY_RGX = r"^[^-,]+$"
 
 """
 Bilateral symmetry constraints have the string format:
-    <Side>_<some component>
+    <side><sep><some component>
+    <some component><sep><side>
+
+Sep can be either: ['_', 'T']
 """
-SYMMETRY_PATTERN = re.compile(r"^(Right|Left|R|L)_(.+)$")
+SYMMETRY_PATTERN = re.compile(r"^(Right|Left|right|left|R|L)(_|T)(.+)$")
+SYMMETRY_PATTERN_2 = re.compile(r"^(.+)(_|T)(Right|Left|right|left|R|L)$")
 
 """
-(VSK) Segment parameters in VSK files are in the format:
+(VSK) Segment parameters in VSK files can be in the format:
     <SegmentName>_<SegmentName><Index>_<Axis>
 """
-SEGMENT_PARAM_MARKER_RGX = (
+SEGMENT_PARAM_SEGMENT_RGX = (
     r"^(?P<segment_name>.+)_(?P=segment_name)(?P<idx>\d+)_(?P<axis>[xyz])$"
 )
+
+"""
+(VSK) They can also be in the following format:
+    <SegmentName>_<MarkerName>_<Axis>
+"""
+SEGMENT_PARAM_MARKER_RGX = r"^(?P<segment_name>.+)_(?P<marker_name>.+)_(?P<axis>[xyz])$"
 
 
 def is_marker_string_valid(marker: str) -> bool:
@@ -91,14 +108,30 @@ def is_joint_string_valid(joint: str) -> bool:
     return marker1 != marker2 and marker1 != marker3 and marker2 != marker3
 
 
-def parse_symmetrical_component(component: str) -> tuple[str, str]:
+def parse_symmetrical_component(component: str) -> tuple[str, str, str]:
     """!Parse a symmetrical component string.
 
     Symmetrical components have the string format:
-        <Side>_<component>
+        <Side>_<component> or <component>_<Side>
+
+    @returns side, component, sep
     """
     match = re.match(SYMMETRY_PATTERN, component)
-    if not match:
-        raise ValueError(f"Invalid symmetry component: {component}")
+    if match:
+        return match.group(1), match.group(3), match.group(2)
 
-    return match.group(1), match.group(2)
+    match = re.match(SYMMETRY_PATTERN_2, component)
+    if match:
+        return match.group(3), match.group(1), match.group(2)
+
+    raise ValueError(f"Invalid symmetry component: {component}")
+
+
+def same_side(sym1: str, sym2: str) -> bool:
+    """!Compare two symmetry denotations"""
+
+    if re.match(LSIDE_RGX, sym1) and re.match(LSIDE_RGX, sym2):
+        return True
+    if re.match(RSIDE_RGX, sym1) and re.match(RSIDE_RGX, sym2):
+        return True
+    return False

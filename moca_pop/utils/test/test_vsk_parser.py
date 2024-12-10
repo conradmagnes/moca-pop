@@ -42,6 +42,15 @@ TEST_PARAMETERS = {
     "Left_Foot_Left_Foot2_z": 0.789,
 }
 
+TEST_PARAMETERS_FMT2 = {
+    "Right_Foot_Marker1_x": 0.918,
+    "Right_Foot_Marker1_y": -3.961,
+    "Right_Foot_Marker1_z": 0.293,
+    "Left_Foot_Marker2_x": 0.123,
+    "Left_Foot_Marker2_y": -3.456,
+    "Left_Foot_Marker2_z": 0.789,
+}
+
 
 class TestVskParser(unittest.TestCase):
     def test_parse_vsk(self):
@@ -59,6 +68,16 @@ class TestVskParser(unittest.TestCase):
             "Left_Foot": {"2": (0.123, -3.456, 0.789)},
         }
         self.assertEqual(marker_positions, expected_res)
+
+        expected_res_fmt2 = {
+            "Right_Foot": {"Marker1": (0.918, -3.961, 0.293)},
+            "Left_Foot": {"Marker2": (0.123, -3.456, 0.789)},
+        }
+
+        marker_positions_fmt2 = vsk_parser.parse_marker_positions_by_segment(
+            TEST_PARAMETERS_FMT2
+        )
+        self.assertEqual(marker_positions_fmt2, expected_res_fmt2)
 
     def test_format_marker_positions(self):
         marker_positions = vsk_parser.parse_marker_positions_by_segment(TEST_PARAMETERS)
