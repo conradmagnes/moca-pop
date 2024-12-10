@@ -12,9 +12,11 @@ If no item is present for a given section, have it say None.
 ### Added
 - `foot_drop` example dataset
 - `rearfoot`, `forefoot`, `fai_wholefoot` model templates
-  - `fai_wholefoot` is a composite model of `rearfoot` and `forefoot`. Implementation of this type of rigid body (a 'custom' rigid body) is incomplete.
+  - `fai_wholefoot` is a composite model of `rearfoot` and `forefoot`.
 
 ### Changed
+- 'custom' rigid body support for all main scripts (bodies that include markers across multiple segments in the VSK)
+- 'static' frame definitions for calibration
 - enforce open console with '--inspect' to avoid blocking the script
 - expanded regex patterns for parsing VSK files and symmetrical markers / bodies
 

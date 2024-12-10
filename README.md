@@ -105,10 +105,10 @@ is only used for visualization purposes.
 The purpose of the RigidBody model is to enforce stricter constraints on marker labeling. By assuming a collection of markers are placed on a
 body that is *more or less* rigid, we can calibrate a RigidBody model and use it to identify mislabeled markers in a trial.
 
-Currently, a rigid body should be defined using only the markers in a VSK segment. An expansion to this could be a 'custom' rigid body, where
-markers from different segments are used to define a rigid body. This has been partially implemented in the `unassign_rb_markers.py` script.
-To finialize this feature, we would need to include a flag for defining a 'static' frame, as joints between segments in the VSK do not
-enforce a fixed distance between markers (resulting in rigid bodies overlapping near 0,0,0).
+'Standard' rigid bodies use only nodes fully contained within a VSK segment. 
+These can be read and calibrated directly from the VSK file. 
+
+'Custom' rigid bodies are those which include markers from more than one VSK segment. These must be added explicitly when calling the main scripts below by using the `--custom` or `--custom_rbs` flags. Model templates for 'custom' rigid bodies can remain agnostic to left and right symmetry, but the user should then specify the side when adding the name to the script call (i.e. 'fai_wholefoot' -> 'fai_wholefoot_R'). Further, the user should not use the `--ignore_symmetry` flag. This does not apply if all symmetry labels are included in the model template. Finally, when using 'custom' rigid bodies, the user should specify a 'static' frame for calibration. This is a frame where all markers are present and in the expected position. This is necessary as joints between segments in the VSK do not enforce a fixed distance between markers, resulting in rigid bodies overlapping near the origin. This can be done by using the `--static_frame` flag.
 
 ## Main Scripts
 

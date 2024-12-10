@@ -28,10 +28,9 @@
 
     Usage:
     ------
-    python swap_rb_markers.py [-h] [-v] [-l] [-c] [-f] [-p] [-s] [-i] [-off] [-out {json,txt}] [-pn PROJECT_NAME] [-tn TRIAL_NAME]
-                          [-sn SUBJECT_NAME] [--distance_tolerance DISTANCE_TOLERANCE] [--start_frame START_FRAME]
+    python swap_rb_markers.py  [-h] [-v] [-l] [-c] [-f] [-p] [-s] [-i] [-off] [-out {json,txt}] [-pn PROJECT_NAME] [-tn TRIAL_NAME] [-sn SUBJECT_NAME] [--include_rbs INCLUDE_RBS]
+                          [--exclude_rbs EXCLUDE_RBS] [--custom_rbs CUSTOM_RBS] [--distance_tolerance DISTANCE_TOLERANCE] [--static_frame STATIC_FRAME] [--start_frame START_FRAME]
                           [--end_frame END_FRAME] [--plot_swaps] [--keep_console_open]
-
     Examples:
     1. Offline Mode:
         python swap_rb_markers.py -off -pn <project_dir> -tn <trial_name> -sn <subject_name> --distance_tolerance 30 --start_frame 0 --end_frame -1
@@ -511,12 +510,36 @@ def configure_parser():
         default="",
         help="Name of the subject. Must be provided if using 'offline' mode.",
     )
+    parser.add_argument(
+        "--include_rbs",
+        type=str,
+        default="",
+        help="Comma-separated list of rigid bodies to include in processing. (i.e. 'rb1,rb2').",
+    )
+    parser.add_argument(
+        "--exclude_rbs",
+        type=str,
+        default="",
+        help="Comma-separated list of rigid bodies to exclude from processing. (i.e. 'rb1,rb2').",
+    )
+    parser.add_argument(
+        "--custom_rbs",
+        type=str,
+        default="",
+        help="Comma-separated list of custom rigid bodies to process (i.e. bodies that span multiple VSK segments).",
+    )
 
     parser.add_argument(
         "--distance_tolerance",
         type=float,
         default=30,
         help="Marker distance tolerance from calibrated skeleton (in mm). Default is 30.",
+    )
+    parser.add_argument(
+        "--static_frame",
+        type=int,
+        default=0,
+        help="Static frame to use for calibrating rigid bodies (required for custom bodies).",
     )
 
     parser.add_argument(
@@ -611,7 +634,19 @@ def main():
     distance_tolerance = args.distance_tolerance
 
     ## Load Data
-    calibrated_rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(vsk_fp)
+    if args.custom_rbs:
+        rbs = args.custom_rbs.split(",")
+        LOGGER.debug(f"Loading custom rigid bodies: {rbs}")
+        calibrated_rigid_bodies = rigid_body_loader.get_custom_rigid_bodies_from_vsk(
+            vsk_fp, rbs
+        )
+        LOGGER.debug(f"Fetched custom rigid bodies: {calibrated_rigid_bodies.keys()}")
+    else:
+        include = args.include_rbs.split(",") if args.include_rbs else None
+        exclude = args.exclude_rbs.split(",") if args.exclude_rbs else None
+        calibrated_rigid_bodies = rigid_body_loader.get_rigid_bodies_from_vsk(
+            vsk_fp, include=include, exclude=exclude
+        )
 
     if offline:
         c3d_reader = c3d_parser.get_reader(trial_fp)
@@ -625,6 +660,37 @@ def main():
         args.start_frame, args.end_frame, trial_frames
     )
     frames = list(range(start - trial_frames[0], end - trial_frames[0] + 1))
+
+    static_frame = args.static_frame
+    if static_frame == 0 and args.custom_rbs:
+        LOGGER.warning(
+            "Static frame not provided. Using first frame but this may yield inaccurate results."
+        )
+        static_frame = trial_frames[0]
+
+    if static_frame > 0:
+        if static_frame not in trial_frames:
+            LOGGER.error(f"Static frame {static_frame} not in trial frames.")
+            exit(-1)
+
+        LOGGER.info(f"Using static frame {static_frame} for calibration.")
+        sf = trial_frames.index(static_frame)
+        LOGGER.info(f"Trajectory index of static frame: {sf}")
+        for rb in calibrated_rigid_bodies.values():
+            nodes = [
+                traj.generate_node(m, sf) for m, traj in marker_trajectories.items()
+            ]
+            missing_nodes = [
+                n for n in nodes if not n.exists and n.marker in rb.get_markers()
+            ]
+            if missing_nodes:
+                LOGGER.error(
+                    f"Markers missing for {rb.name} in static frame: {missing_nodes}"
+                )
+                exit(-1)
+            rb.update_node_positions(
+                nodes, recompute_lengths=True, recompute_angles=True
+            )
 
     ## Process Data
     results = generate_swaps_and_displacements(
@@ -681,6 +747,29 @@ def main():
                     isa_args.append("-off")
                 if args.verbose:
                     isa_args.append("-v")
+                if static_frame > 0 or args.custom_rbs:
+                    isa_args.extend(["--static_frame", str(static_frame)])
+                if args.custom_rbs:
+                    body_choices = [f"[0] Exit"]
+                    body_choices.extend(
+                        [
+                            f"[{i+1}] {rb}"
+                            for i, rb in enumerate(calibrated_rigid_bodies.keys())
+                        ]
+                    )
+                    ui_body = hmi.get_user_input(
+                        "\n".join(
+                            ["Enter the rigid body to inspect:", *body_choices, "\n"]
+                        ),
+                        exit_on_quit=True,
+                        choices=body_choices,
+                    )
+                    if ui_body == 0:
+                        loop_inspector = False
+                        continue
+
+                    isa_args.extend(["--custom", "--ignore_symmetry", "--rb_name"])
+                    isa_args.append(list(calibrated_rigid_bodies.keys())[ui_body - 1])
 
                 LOGGER.info(
                     "Opening Interactive Score Analyzer as a subprocess. This may take a moement to load"
