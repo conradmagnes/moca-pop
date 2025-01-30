@@ -3,9 +3,7 @@
 
 ## Description
 
-This repository contains python scripts for processing motion capture data. The scripts were designed and tested
-to work with the Vicon Nexus software or files exported from the software (.VSK, .C3D). The core concepts of this repository, however, can be
-extended to work with other motion capture systems.
+This repository contains python scripts for processing motion capture data. The scripts were designed and tested to work with the Vicon Nexus software or files exported from the software (.VSK, .C3D). The core concepts of this repository, however, can be extended to work with other motion capture systems.
 
 ## Contents
 - [Motivating Examples](#motivating-examples)
@@ -22,7 +20,7 @@ extended to work with other motion capture systems.
 
 ### Marker Label Jumping and Swapping
 
-Incompete or erroneous marker reconstruction can impact the labeling accuracy of out-of-the-box labeling pipelines used in motion capture software, such as Vicon Nexus. A common result is that marker labels "jump" to inaccurate positions, or are swapped with other markers. This happens often when ghost markers or other artifacts are present in the reconstruction. These issues may persist even after calibrating a labeling skeleton.
+Incomplete or erroneous marker reconstruction can impact the labeling accuracy of out-of-the-box labeling pipelines used in motion capture software, such as Vicon Nexus. A common result is that marker labels "jump" to inaccurate positions, or are swapped with other markers. This happens often when ghost markers or other artifacts are present in the reconstruction. These issues may persist even after calibrating a labeling skeleton.
 
 The following demo shows the sequential execution of the `swap_rb_markers.py` and `unassign_rb_markers.py` scripts to help resolve labeling errors. The demo uses a recording of a subject stepping forward with the right foot. Ten markers were placed on each of the subject's shoes. Labeling for the right shoe is colored, with notable mislabeled markers highlighted in red, yellow, blue and light green. Other marker labels are colored dark green (right shoe) or dark gray (left shoe). Light gray markers indicate unlabeled markers.
 
@@ -96,17 +94,13 @@ All scripts have a `--help` flag that provides information on how to use the scr
 The RigidBody model uses Nodes, Segments, and Joints to define the relationship between markers in a motion capture trial.
 Nodes represent marker positions in 3D space, Segments represent lines connecting two Nodes, and Joints represent angles between two Segments.
 
-The Vicon Nexus labeing skeleton (VSK) uses a similar structure, but at one level of abstraction higher. VSK segments include three or more
-markers. VSK joints define a relationship between two segments using one marker on each segment.
+The Vicon Nexus labeling skeleton (VSK) uses a similar structure, but at one level of abstraction higher. VSK segments include three or more markers. VSK joints define a relationship between two segments using one marker on each segment.
 
-In this repo, a RigidBody is most similar to a segment in the VSK. A Segment in the RigidBody model is most similar to a stick in the VSK, which
-is only used for visualization purposes.
+In this repo, a RigidBody is most similar to a segment in the VSK. A Segment in the RigidBody model is most similar to a stick in the VSK, which is only used for visualization purposes.
 
-The purpose of the RigidBody model is to enforce stricter constraints on marker labeling. By assuming a collection of markers are placed on a
-body that is *more or less* rigid, we can calibrate a RigidBody model and use it to identify mislabeled markers in a trial.
+The purpose of the RigidBody model is to enforce stricter constraints on marker labeling. By assuming a collection of markers are placed on a body that is *more or less* rigid, we can calibrate a RigidBody model and use it to identify mislabeled markers in a trial.
 
-'Standard' rigid bodies use only nodes fully contained within a VSK segment. 
-These can be read and calibrated directly from the VSK file. 
+'Standard' rigid bodies use only nodes fully contained within a VSK segment. These can be read and calibrated directly from the VSK file. 
 
 'Custom' rigid bodies are those which include markers from more than one VSK segment. These must be added explicitly when calling the main scripts below by using the `--custom` or `--custom_rbs` flags. Model templates for 'custom' rigid bodies can remain agnostic to left and right symmetry, but the user should then specify the side when adding the name to the script call (i.e. 'fai_wholefoot' -> 'fai_wholefoot_R'). Finally, when using 'custom' rigid bodies, the user should specify a 'static' frame for calibration. This is a frame where all markers are present and in the expected position. This is necessary as joints between segments in the VSK do not enforce a fixed distance between markers, resulting in rigid bodies overlapping near the origin. This can be done by using the `--static_frame` flag.
 
@@ -128,13 +122,7 @@ python moca_pop/scripts/swap_rb_markers/swap_rb_markers.py --help
 
 ### 2. `unassign_rb_makers.py`
 
-This script unassigns maker labels from a subject in a Vicon Nexus trial using a RigidBody model. A RigidBody defines
-the relationship between markers in a Vicon Skeleton (vsk) model through Segments (lines) and Joints (angles). 
-The script calculates the difference in segments lengths and joint angles between a calibrated Rigid Body model and the 
-Rigid Body at each frame in the trial. Alternatively, the script can compare the Rigid Body between successive frames.
-The script scores each marker based on differences in segment lengths and joint angles, and unassigns markers with
-scores above a set threshold. 
-The script supports both 'online' and 'offline' modes, as well as direct integration into the Vicon Nexus software as a pipeline operation.
+This script unassigns maker labels from a subject in a Vicon Nexus trial using a RigidBody model. A RigidBody defines the relationship between markers in a Vicon Skeleton (vsk) model through Segments (lines) and Joints (angles). The script calculates the difference in segments lengths and joint angles between a calibrated Rigid Body model and the Rigid Body at each frame in the trial. Alternatively, the script can compare the Rigid Body between successive frames. The script scores each marker based on differences in segment lengths and joint angles, and unassigns markers with scores above a set threshold. The script supports both 'online' and 'offline' modes, as well as direct integration into the Vicon Nexus software as a pipeline operation.
 
 To view usage information, run the following command:
 ```bash
