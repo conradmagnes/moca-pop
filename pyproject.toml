@@ -3,7 +3,7 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "moca_pop"
+name = "moca-pop"
 version = "1.0.0"
 requires-python = ">=3.11"
 dependencies=[
@@ -19,7 +19,7 @@ dependencies=[
 packages = { find = { include = ["moca_pop", "moca_pop.*"], exclude = ["test", "*.test", "test.*", "*.test.*"] } }
 
 [tool.setuptools.package-dir]
-moca_pop = "moca_pop"
+"moca-pop" = "moca_pop"
 
 [project.optional-dependencies]
 test = []
