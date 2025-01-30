@@ -8,6 +8,18 @@ Each entry has to feature the following sections: **Added**, **Changed**, and
 **Removed**.
 If no item is present for a given section, have it say None.
 
+## 2025-01-30
+### Added
+None
+
+### Changed
+- Renamed repo, "moca_pop" -> "moca-pop", updated pyproject.toml as a result
+- updated interactive app to check for offline before `vicon_utils` import
+- changed `trial01.c3d` in `example_datasets/shoe_stepping`
+
+### Removed
+None
+
 ## 2024-12-10
 ### Added
 - `foot_drop` example dataset
