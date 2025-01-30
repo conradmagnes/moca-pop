@@ -36,7 +36,7 @@ EXPECTED_POINT_LABELS = [
     "*20",
 ]
 
-PLOT_MARKER = "Right_HM"
+PLOT_MARKER = "Right_ML"
 
 
 class TestC3DLoader(unittest.TestCase):
@@ -78,12 +78,14 @@ class TestC3DLoader(unittest.TestCase):
         positions, residuals = c3d_parser.get_marker_positions(
             reader, marker_labels=[PLOT_MARKER], unit_scale=0.001
         )
+        frames = c3d_parser.get_frames(reader)
 
         fig, ax = plt.subplots(1, 2, figsize=(10, 4), sharex=True, sharey=True)
 
-        ax[0].plot(trajectories[PLOT_MARKER].x, label="x")
-        ax[0].plot(trajectories[PLOT_MARKER].y, label="y")
-        ax[0].plot(trajectories[PLOT_MARKER].z, label="z")
+        ax[0].plot(frames, trajectories[PLOT_MARKER].x, label="x")
+        ax[0].plot(frames, trajectories[PLOT_MARKER].y, label="y")
+        ax[0].plot(frames, trajectories[PLOT_MARKER].z, label="z")
+        plt.show
 
         non_existent = np.array(trajectories[PLOT_MARKER].exists) == False
         exists_l, exists_g = plotUtils.get_binary_signal_edges(non_existent)
@@ -111,6 +113,7 @@ class TestC3DLoader(unittest.TestCase):
         fig.tight_layout()
         trial_name = os.path.basename(TEST_DATA_PATH).split(".")[0]
         fig.savefig(os.path.join(TEST_PLT_DIR, f"{trial_name}_{PLOT_MARKER}.png"))
+        plt.show(block=True)
 
 
 if __name__ == "__main__":

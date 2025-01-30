@@ -64,9 +64,9 @@ import moca_pop.config.regex as regex
 import moca_pop.config.logger as logger
 from moca_pop.models.rigid_body import RigidBody, best_fit_transform
 from moca_pop.utils import c3d_parser, hmi, json_utils
-from moca_pop.utils import rigid_body_loader, model_template_loader, vicon_utils
-from moca_pop.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
 
+from moca_pop.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
+from moca_pop.utils import rigid_body_loader, model_template_loader
 import moca_pop.aux_scripts.interactive_score_analyzer.constants as isa_consts
 import moca_pop.aux_scripts.interactive_score_analyzer.layout as isa_layout
 import moca_pop.aux_scripts.interactive_score_analyzer.helpers as isa_helpers
@@ -1277,6 +1277,7 @@ def main():
     else:
         try:
             from viconnexusapi import ViconNexus
+            from moca_pop.utils import vicon_utils
         except ImportError as e:
             LOGGER.error(f"Error importing Vicon Nexus. Check installation. {e}")
             exit(-1)
@@ -1369,4 +1370,4 @@ def test_main_with_args():
 
 if __name__ == "__main__":
     test_main_with_args()
-    # main()
+    main()

@@ -11,16 +11,16 @@ import moca_pop.utils.rigid_body_loader as rigid_body_loader
 import moca_pop.utils.vsk_parser as vsk_parser
 
 ## Uncomment for testing shoe stepping dataset
-# DATASET_NAME = "shoe_stepping"
-# TRIAL_FN = "trial01.c3d"
-# SUBJECT_NAME = "subject"
-# RB_NAME = "Foot"
-
-DATASET_NAME = "foot_drop"
-TRIAL_FN = "tpose.c3d"
+DATASET_NAME = "shoe_stepping"
+TRIAL_FN = "trial01.c3d"
 SUBJECT_NAME = "subject"
+RB_NAME = "Foot"
+
+# DATASET_NAME = "foot_drop"
+# TRIAL_FN = "tpose.c3d"
+# SUBJECT_NAME = "subject"
 # RB_NAME = "fai_wholefoot"
-RB_NAME = "rearfoot"
+# RB_NAME = "rearfoot"
 IGNORE_SYMMETRY = False
 CUSTOM = False
 
