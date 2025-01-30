@@ -65,6 +65,7 @@ import moca_pop.config.logger as logger
 from moca_pop.models.rigid_body import RigidBody, best_fit_transform
 from moca_pop.utils import c3d_parser, hmi, json_utils
 
+
 from moca_pop.scripts.unassign_rb_markers.scoring import scorer, scoringParameters
 from moca_pop.utils import rigid_body_loader, model_template_loader
 import moca_pop.aux_scripts.interactive_score_analyzer.constants as isa_consts
@@ -1102,6 +1103,7 @@ def load_active_body(
         marker_trajectories = c3d_parser.get_marker_trajectories(c3d_reader)
         frames = c3d_parser.get_frames(c3d_reader)
     else:
+        from moca_pop.utils import vicon_utils
         if subject_name == "" or not vicon:
             LOGGER.error("Subject name and ViconNexus instance must be provided.")
             exit(-1)
@@ -1277,7 +1279,7 @@ def main():
     else:
         try:
             from viconnexusapi import ViconNexus
-            from moca_pop.utils import vicon_utils
+            
         except ImportError as e:
             LOGGER.error(f"Error importing Vicon Nexus. Check installation. {e}")
             exit(-1)
@@ -1347,7 +1349,7 @@ def test_main_with_args():
     #     "--ignore_symmetry",
     #     "--frame",
     #     "0",
-    #     "-v",
+    #     "-v",  
     # ]
     sys.argv = [
         sys.argv[0],
@@ -1369,5 +1371,5 @@ def test_main_with_args():
 
 
 if __name__ == "__main__":
-    test_main_with_args()
+    # test_main_with_args()
     main()

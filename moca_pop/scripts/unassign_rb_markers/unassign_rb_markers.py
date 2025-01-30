@@ -429,14 +429,18 @@ def plot_scores(
     for i, (rb_name, rb) in enumerate(rigid_bodies.items()):
         scores = np.array(score_histories[rb_name])
         x = np.arange(start_frame, start_frame + len(scores))
-        ax[i].plot(x, scores)
-        ax[i].set_title(rb_name)
-        ax[i].set_ylabel("Score")
-        ax[i].set_xlabel("Frame Index")
-        ax[i].legend(rb.get_markers())
+        if ncols ==1:
+            a = ax
+        else:
+            a = ax[i]
+        a.plot(x, scores)
+        a.set_title(rb_name)
+        a.set_ylabel("Score")
+        a.set_xlabel("Frame Index")
+        a.legend(rb.get_markers())
 
         threshold = 0
-        ax[i].axhline(threshold, color="black", linestyle="--")
+        a.axhline(threshold, color="black", linestyle="--")
 
     fig.tight_layout()
 

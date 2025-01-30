@@ -324,7 +324,7 @@ def plot_swaps(results: dict):
     """
     ncols = len(results)
     nrows = 1
-
+    
     fig, ax = plt.subplots(
         nrows, ncols, figsize=(5 * ncols, 4), sharex=True, sharey=True
     )
@@ -334,10 +334,14 @@ def plot_swaps(results: dict):
             max(len(frame["swaps"]), len(frame["displacements"])) for frame in res
         ]
         frames = [frame["frame"] for frame in res]
-        ax[i].plot(frames, num_swaps)
-        ax[i].set_title(rb_name)
-        ax[i].set_ylabel("Number of Swaps / Displacements")
-        ax[i].set_xlabel("Frame Index")
+        if ncols > 1:
+            a = ax[i]
+        else:
+            a= ax
+        a.plot(frames, num_swaps)
+        a.set_title(rb_name)
+        a.set_ylabel("Number of Swaps / Displacements")
+        a.set_xlabel("Frame Index")
 
     fig.tight_layout()
 

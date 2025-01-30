@@ -4,11 +4,13 @@ from pathlib import Path
 
 def find_root_dir():
     """Recursively search upwards for the project root directory."""
-    marker = "moca_pop"
+    marker = "moca-pop"
     current_dir = Path(__file__).resolve().parent
+    if current_dir.name == marker:
+        return current_dir
 
     for parent in current_dir.parents:
-        if (parent / marker).exists() and parent.name == marker:
+        if parent.name == marker:
             return parent
 
     raise RuntimeError(f"Root directory with marker '{marker}' not found.")

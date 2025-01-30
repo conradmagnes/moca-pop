@@ -1,0 +1,26 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no" ?>
+<Pipeline>
+
+  <Entry DisplayName="Run Python Operation" Enabled="0" OperationId="41" OperationName="Python">
+    <ParamList name="" version="1">
+      <Param name="Script" value="C:/Users/Public/Documents/Vicon/Python/moca-pop/moca_pop/scripts/swap_rb_markers/swap_rb_markers.py"/>
+      <Param name="ScriptArgs" value="-v -c -l -i --static_frame 82  --plot_swaps --distance_tolerance 15"/>
+      <Param name="PythonCommand" value="python.exe"/>
+      <Param name="PythonPreScript" value="C:/Users/Public/Documents/Vicon/Nexus2.16/NexusLocalPython.bat"/>
+      <Param name="LaunchPython" value="false"/>
+      <Param name="UseNexusPython" value="false"/>
+    </ParamList>
+  </Entry>
+
+  <Entry DisplayName="Run Python Operation" Enabled="1" OperationId="47" OperationName="Python">
+    <ParamList name="" version="1">
+      <Param name="Script" value="C:/Users/Public/Documents/Vicon/Python/moca-pop/moca_pop/scripts/unassign_rb_markers/unassign_rb_markers.py"/>
+      <Param name="ScriptArgs" value="-v -c -l -i --segments_only --custom_rbs fai_wholefoot_R,fai_wholefoot_L --static_frame 81 --keep_console_open --scoring_name fai_foot --plot_removals --plot_scores"/>
+      <Param name="PythonCommand" value="python.exe"/>
+      <Param name="PythonPreScript" value="C:/Users/Public/Documents/Vicon/Nexus2.16/NexusLocalPython.bat"/>
+      <Param name="LaunchPython" value="false"/>
+      <Param name="UseNexusPython" value="false"/>
+    </ParamList>
+  </Entry>
+
+</Pipeline>

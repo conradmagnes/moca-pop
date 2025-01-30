@@ -11,5 +11,5 @@
         "segment": 1.0,
         "joint": 0.00278
     },
-    "removal_threshold":0.05
+    "removal_threshold":0.15
 }
